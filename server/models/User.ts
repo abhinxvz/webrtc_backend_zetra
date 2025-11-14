@@ -5,6 +5,8 @@ export interface IUser extends Document {
   email: string;
   passwordHash: string;
   createdAt: Date;
+  googleId?: string;
+  avatar?: string; 
 }
 
 const UserSchema: Schema = new Schema({
@@ -28,6 +30,12 @@ const UserSchema: Schema = new Schema({
   createdAt: {
     type: Date,
     default: Date.now,
+  },
+  googleId: { 
+    type: String 
+  },
+  avatar: { 
+    type: String 
   },
 });
 
