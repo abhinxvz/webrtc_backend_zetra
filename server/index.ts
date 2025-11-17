@@ -10,6 +10,8 @@ import authRoutes from './routes/authRoutes';
 import roomRoutes from './routes/room';
 import callLogRoutes from './routes/callLogRoutes';
 import userRoutes from './routes/userRoutes';
+import iceServersRoutes from './routes/iceServers';
+import meetingSummaryRoutes from './routes/meetingSummaryRoutes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import logger from './utils/logger';
 import env from './config/env';
@@ -20,8 +22,9 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
+    origin: true, // Allow all origins for ngrok compatibility
     methods: ['GET', 'POST'],
+    credentials: true,
   },
 });
 
@@ -51,6 +54,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/room', roomRoutes);
 app.use('/api/call-logs', callLogRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/ice-servers', iceServersRoutes);
+app.use('/api/meeting-summary', meetingSummaryRoutes);
 
 // Debug routes (only in development)
 if (env.NODE_ENV === 'development') {
@@ -93,9 +98,38 @@ io.on('connection', (socket) => {
         return;
       }
 
+      // Get existing users in the room before joining
+      const room = io.sockets.adapter.rooms.get(roomId);
+      const existingUsers = room ? Array.from(room) : [];
+      
       socket.join(roomId);
+      logger.info('User joined room', { 
+        userId, 
+        roomId, 
+        socketId: socket.id,
+        existingUsersCount: existingUsers.length 
+      });
+
+      // Notify existing users about the new user
       socket.to(roomId).emit('user-connected', userId);
-      logger.info('User joined room', { userId, roomId, socketId: socket.id });
+      
+      // Notify the new user about existing users
+      existingUsers.forEach((existingSocketId) => {
+        if (existingSocketId !== socket.id) {
+          const existingSocket = io.sockets.sockets.get(existingSocketId);
+          if (existingSocket) {
+            // Get the userId from the socket (we'll store it)
+            const existingUserId = (existingSocket as any).userId;
+            if (existingUserId) {
+              socket.emit('user-connected', existingUserId);
+            }
+          }
+        }
+      });
+
+      // Store userId on socket for later reference
+      (socket as any).userId = userId;
+      (socket as any).roomId = roomId;
 
       socket.on('disconnect', () => {
         socket.to(roomId).emit('user-disconnected', userId);

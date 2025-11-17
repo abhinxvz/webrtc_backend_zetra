@@ -13,11 +13,13 @@ interface EnvConfig {
   TURN_SERVER_URL?: string;
   TURN_SERVER_USERNAME?: string;
   TURN_SERVER_CREDENTIAL?: string;
+  OPENAI_API_KEY: string;
 }
 
 const requiredEnvVars = [
   'MONGO_URI',
   'JWT_SECRET',
+  'OPENAI_API_KEY',
 ];
 
 const validateEnv = (): EnvConfig => {
@@ -44,6 +46,7 @@ const validateEnv = (): EnvConfig => {
     TURN_SERVER_URL: process.env.TURN_SERVER_URL,
     TURN_SERVER_USERNAME: process.env.TURN_SERVER_USERNAME,
     TURN_SERVER_CREDENTIAL: process.env.TURN_SERVER_CREDENTIAL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY!,
   };
 
   logger.info('Environment configuration validated', {

@@ -3,6 +3,34 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
+import { Button } from '@/components/ui/button';
+import { AnimatedButton } from '@/components/ui/animated-button';
+import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import MeetingSummarizer from '@/components/MeetingSummarizer';
+import { 
+  Navbar, 
+  NavBody, 
+  NavItems, 
+  MobileNav, 
+  MobileNavHeader, 
+  MobileNavMenu, 
+  MobileNavToggle 
+} from '@/components/ui/resizable-navbar';
+import { ControlDock, DockDivider } from '@/components/ui/control-dock';
+import { 
+  Mic, 
+  MicOff, 
+  Video, 
+  VideoOff, 
+  MonitorUp, 
+  MonitorStop, 
+  MessageSquare, 
+  MessageSquareOff, 
+  Sparkles, 
+  LogOut,
+  Copy
+} from 'lucide-react';
 
 export default function Room() {
   const params = useParams();
@@ -17,12 +45,15 @@ export default function Room() {
   const [chatInput, setChatInput] = useState('');
   const [showChat, setShowChat] = useState(false);
   const [username, setUsername] = useState('User');
+  const [showSummarizer, setShowSummarizer] = useState(false);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const [userId, setUserId] = useState<string>('');
+  const [remoteUserId, setRemoteUserId] = useState<string>('');
+  const iceCandidatesQueue = useRef<RTCIceCandidateInit[]>([]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -68,64 +99,172 @@ export default function Room() {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
+            {
+              urls: 'turn:openrelay.metered.ca:80',
+              username: 'openrelayproject',
+              credential: 'openrelayproject',
+            },
+            {
+              urls: 'turn:openrelay.metered.ca:443',
+              username: 'openrelayproject',
+              credential: 'openrelayproject',
+            },
+            {
+              urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+              username: 'openrelayproject',
+              credential: 'openrelayproject',
+            },
           ],
+          iceCandidatePoolSize: 10,
         };
 
         const peerConnection = new RTCPeerConnection(configuration);
+        
+        peerConnection.oniceconnectionstatechange = () => {
+          console.log('ICE Connection State:', peerConnection.iceConnectionState);
+          if (peerConnection.iceConnectionState === 'connected') {
+            console.log('Peers connected successfully!');
+          } else if (peerConnection.iceConnectionState === 'failed') {
+            console.error('ICE connection failed');
+          }
+        };
+        
+        peerConnection.onicegatheringstatechange = () => {
+          console.log('ICE Gathering State:', peerConnection.iceGatheringState);
+        };
+        
+        peerConnection.onconnectionstatechange = () => {
+          console.log('Connection state:', peerConnection.connectionState);
+          if (peerConnection.connectionState === 'connected') {
+            console.log('✅ WebRTC connection established!');
+          }
+        };
+
+        peerConnection.onsignalingstatechange = () => {
+          console.log('Signaling state:', peerConnection.signalingState);
+        };
+        
         peerConnectionRef.current = peerConnection;
 
         stream.getTracks().forEach((track) => {
+          console.log('Adding local track:', track.kind);
           peerConnection.addTrack(track, stream);
         });
 
         peerConnection.ontrack = (event) => {
-          if (remoteVideoRef.current) {
+          console.log('Received remote track:', event.track.kind);
+          if (remoteVideoRef.current && event.streams[0]) {
             remoteVideoRef.current.srcObject = event.streams[0];
+            console.log('✅ Remote stream connected to video element');
           }
         };
 
         peerConnection.onicecandidate = (event) => {
           if (event.candidate) {
+            console.log('Sending ICE candidate:', event.candidate.type);
             socketInstance.emit('ice-candidate', roomId, event.candidate);
+          } else {
+            console.log('All ICE candidates have been sent');
           }
-        };
-
-        peerConnection.onconnectionstatechange = () => {
-          console.log('Connection state:', peerConnection.connectionState);
         };
 
         socketInstance.emit('join-room', roomId, userId);
 
         socketInstance.on('user-connected', async (connectedUserId: string) => {
-          console.log('User connected:', connectedUserId);
-          const offer = await peerConnection.createOffer();
-          await peerConnection.setLocalDescription(offer);
-          socketInstance.emit('offer', roomId, offer);
+          console.log('🔵 User connected:', connectedUserId);
+          setRemoteUserId(connectedUserId);
+          
+          // Only create offer if we're the first user (lower userId creates offer)
+          if (userId < connectedUserId) {
+            console.log('📤 Creating and sending offer...');
+            try {
+              const offer = await peerConnection.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true,
+              });
+              await peerConnection.setLocalDescription(offer);
+              socketInstance.emit('offer', roomId, offer);
+              console.log('✅ Offer sent');
+            } catch (error) {
+              console.error('❌ Error creating offer:', error);
+            }
+          } else {
+            console.log('⏳ Waiting for offer from other user...');
+          }
         });
 
         socketInstance.on('offer', async (offer: RTCSessionDescriptionInit) => {
-          console.log('Received offer');
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-          const answer = await peerConnection.createAnswer();
-          await peerConnection.setLocalDescription(answer);
-          socketInstance.emit('answer', roomId, answer);
+          console.log('📥 Received offer');
+          try {
+            if (peerConnection.signalingState !== 'stable') {
+              console.log('⚠️ Signaling state is not stable, current state:', peerConnection.signalingState);
+            }
+            
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+            console.log('✅ Remote description set from offer');
+            
+            // Process queued ICE candidates
+            while (iceCandidatesQueue.current.length > 0) {
+              const candidate = iceCandidatesQueue.current.shift();
+              if (candidate) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log('✅ Added queued ICE candidate');
+              }
+            }
+            
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            socketInstance.emit('answer', roomId, answer);
+            console.log('Answer sent');
+          } catch (error) {
+            console.error('Error handling offer:', error);
+          }
         });
 
         socketInstance.on('answer', async (answer: RTCSessionDescriptionInit) => {
-          console.log('Received answer');
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+          console.log( 'Received answer');
+          try {
+            if (peerConnection.signalingState === 'have-local-offer') {
+              await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+              console.log('Remote description set from answer');
+              
+              // Process queued ICE candidates
+              while (iceCandidatesQueue.current.length > 0) {
+                const candidate = iceCandidatesQueue.current.shift();
+                if (candidate) {
+                  await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                  console.log('Added queued ICE candidate');
+                }
+              }
+            } else {
+              console.warn(' Received answer in wrong state:', peerConnection.signalingState);
+            }
+          } catch (error) {
+            console.error(' Error handling answer:', error);
+          }
         });
 
         socketInstance.on('ice-candidate', async (candidate: RTCIceCandidateInit) => {
+          console.log('📥 Received ICE candidate');
           try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            if (peerConnection.remoteDescription) {
+              await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+              console.log('✅ ICE candidate added');
+            } else {
+              console.log('⏳ Queuing ICE candidate (no remote description yet)');
+              iceCandidatesQueue.current.push(candidate);
+            }
           } catch (error) {
-            console.error('Error adding ICE candidate:', error);
+            console.error('❌ Error adding ICE candidate:', error);
           }
         });
 
         socketInstance.on('user-disconnected', (disconnectedUserId: string) => {
-          console.log('User disconnected:', disconnectedUserId);
+          console.log('🔴 User disconnected:', disconnectedUserId);
+          setRemoteUserId('');
           if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = null;
           }
@@ -134,9 +273,23 @@ export default function Room() {
         socketInstance.on('chat-message', (data: { message: string; username: string; timestamp: Date }) => {
           setChatMessages((prev) => [...prev, data]);
         });
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error accessing media devices:', error);
-        alert('Failed to access camera/microphone. Please grant permissions.');
+        
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+          alert('Camera/Microphone Access Denied\n\nPlease allow camera and microphone permissions in your browser settings to join the video call.\n\n1. Click the camera icon in your browser address bar\n2. Allow camera and microphone access\n3. Refresh the page');
+        } else if (error.name === 'NotFoundError') {
+          alert('No Camera/Microphone Found\n\nPlease connect a camera and microphone to your device.');
+        } else if (error.name === 'NotReadableError') {
+          alert('Camera/Microphone In Use\n\nYour camera or microphone is being used by another application. Please close other apps and try again.');
+        } else {
+          alert('Failed to Access Media Devices\n\nError: ' + error.message + '\n\nPlease check your camera and microphone permissions.');
+        }
+        
+        // Redirect back to dashboard after 3 seconds
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 3000);
       }
     };
 
@@ -245,169 +398,250 @@ export default function Room() {
 
   const copyRoomId = () => {
     navigator.clipboard.writeText(roomId);
-    alert('Room ID copied to clipboard!');
+    alert('Room ID copied!');
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
-      {/* Header */}
-      <div className="bg-gray-800 px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <h1 className="text-white text-xl font-semibold">Zetra</h1>
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400 text-sm">Room ID:</span>
-            <code className="bg-gray-700 text-white px-3 py-1 rounded text-sm">{roomId}</code>
-            <button
-              onClick={copyRoomId}
-              className="text-blue-400 hover:text-blue-300 text-sm"
-              title="Copy Room ID"
-            >
-              📋
-            </button>
+    <div className="min-h-screen flex flex-col bg-black relative">
+
+      {/* Navigation */}
+      <Navbar className="top-0 relative z-50">
+        <NavBody>
+          <a href="/dashboard" className="relative z-20 flex items-center gap-3 px-2 py-1">
+            <img src="/zetra-logo.svg" alt="Zetra" className="w-10 h-10" />
+            <span className="text-2xl font-bold text-white">Zetra</span>
+          </a>
+          <div className="absolute inset-0 flex flex-1 items-center justify-center">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-200">Room:</span>
+              <code className="bg-white/20 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-sm font-mono font-semibold border border-white/30">
+                {roomId}
+              </code>
+              <Button
+                onClick={copyRoomId}
+                variant="ghost"
+                size="sm"
+                className="h-8 text-white hover:bg-white/20 flex items-center gap-2"
+              >
+                <Copy className="w-4 h-4" />
+                Copy ID
+              </Button>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-          <span className="text-gray-400 text-sm">{isConnected ? 'Connected' : 'Disconnected'}</span>
-        </div>
-      </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`} />
+              <span className="text-sm font-medium text-gray-200">
+                {isConnected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
+          </div>
+        </NavBody>
+        
+        <MobileNav>
+          <MobileNavHeader>
+            <a href="/dashboard" className="flex items-center gap-2">
+              <img src="/zetra-logo.svg" alt="Zetra" className="w-8 h-8" />
+              <span className="text-xl font-bold text-white">Zetra</span>
+            </a>
+          </MobileNavHeader>
+        </MobileNav>
+      </Navbar>
 
       {/* Main Content */}
-      <div className="flex-1 flex">
+      <div className="flex-1 flex relative z-10">
+        {/* Video Filters Sidebar */}
+        {/* AI Summarizer Sidebar */}
+        {showSummarizer && (
+          <div className="w-96 bg-white/10 backdrop-blur-md border-r-2 border-white/20 p-6 overflow-y-auto">
+            <MeetingSummarizer
+              roomId={roomId}
+              userId={userId}
+              username={username}
+              isConnected={isConnected}
+            />
+          </div>
+        )}
+
         {/* Video Grid */}
-        <div className="flex-1 p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+        <div className="flex-1 flex items-center justify-center p-6 pb-32">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-7xl w-full max-h-[calc(100vh-200px)]">
             {/* Local Video */}
-            <div className="relative bg-gray-800 rounded-lg overflow-hidden">
+            <Card className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black backdrop-blur-sm border-2 border-white/30 rounded-3xl shadow-2xl hover:border-white/50 transition-all duration-300 hover:scale-[1.02]">
               <video
                 ref={localVideoRef}
                 autoPlay
                 muted
                 playsInline
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-all duration-300 rounded-3xl"
               />
-              <div className="absolute bottom-4 left-4 bg-black bg-opacity-50 px-3 py-1 rounded">
-                <p className="text-white text-sm">You ({username})</p>
+              <div className="absolute bottom-6 left-6 bg-black/80 backdrop-blur-lg px-5 py-2.5 rounded-2xl border border-white/20">
+                <p className="text-white text-sm font-semibold">You ({username})</p>
               </div>
               {!isVideoEnabled && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-700">
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
                   <div className="text-center">
-                    <div className="w-20 h-20 bg-gray-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <span className="text-3xl text-white">{username.charAt(0).toUpperCase()}</span>
+                    <div className="w-24 h-24 bg-black rounded-full flex items-center justify-center mx-auto mb-3 border-4 border-white">
+                      <span className="text-4xl text-white font-bold">{username.charAt(0).toUpperCase()}</span>
                     </div>
-                    <p className="text-white text-sm">Camera Off</p>
+                    <p className="text-white text-sm font-medium">Camera off</p>
                   </div>
                 </div>
               )}
-            </div>
+            </Card>
 
             {/* Remote Video */}
-            <div className="relative bg-gray-800 rounded-lg overflow-hidden">
+            <Card className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black backdrop-blur-sm border-2 border-white/30 rounded-3xl shadow-2xl hover:border-white/50 transition-all duration-300 hover:scale-[1.02]">
               <video
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover rounded-3xl"
               />
-              <div className="absolute bottom-4 left-4 bg-black bg-opacity-50 px-3 py-1 rounded">
-                <p className="text-white text-sm">Remote User</p>
+              <div className="absolute bottom-6 left-6 bg-black/80 backdrop-blur-lg px-5 py-2.5 rounded-2xl border border-white/20">
+                <p className="text-white text-sm font-semibold">Remote user</p>
               </div>
-            </div>
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+                <div className="text-center">
+                  <div className="w-24 h-24 bg-black rounded-full flex items-center justify-center mx-auto mb-3 border-4 border-white">
+                    <span className="text-4xl text-white font-bold">?</span>
+                  </div>
+                  <p className="text-white text-sm font-medium">Waiting for user...</p>
+                </div>
+              </div>
+            </Card>
           </div>
         </div>
 
+        {/* Summarizer Sidebar */}
+        {showSummarizer && (
+          <div className="w-96 bg-white/10 backdrop-blur-md border-l-2 border-white/20 p-6 overflow-y-auto">
+            <MeetingSummarizer
+              roomId={roomId}
+              userId={userId}
+              username={username}
+              isConnected={isConnected}
+            />
+          </div>
+        )}
+
         {/* Chat Sidebar */}
-        {showChat && (
-          <div className="w-80 bg-gray-800 border-l border-gray-700 flex flex-col">
-            <div className="p-4 border-b border-gray-700">
-              <h3 className="text-white font-semibold">Chat</h3>
+        {showChat && !showSummarizer && (
+          <div className="w-96 bg-white/10 backdrop-blur-md border-l-2 border-white/20 flex flex-col">
+            <div className="p-6 border-b-2 border-white/20">
+              <h3 className="text-xl font-bold text-white">Chat</h3>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {chatMessages.map((msg, idx) => (
-                <div key={idx} className="bg-gray-700 rounded p-3">
-                  <p className="text-blue-400 text-sm font-semibold">{msg.username}</p>
-                  <p className="text-white text-sm mt-1">{msg.message}</p>
-                  <p className="text-gray-400 text-xs mt-1">
-                    {new Date(msg.timestamp).toLocaleTimeString()}
-                  </p>
+            <div className="flex-1 overflow-y-auto p-6 space-y-3">
+              {chatMessages.length === 0 ? (
+                <div className="text-center text-gray-300 mt-8">
+                  <p className="text-sm">No messages yet</p>
                 </div>
-              ))}
+              ) : (
+                chatMessages.map((msg, idx) => (
+                  <div key={idx} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                    <p className="text-white text-sm font-bold">{msg.username}</p>
+                    <p className="text-gray-200 text-sm mt-1">{msg.message}</p>
+                    <p className="text-gray-400 text-xs mt-2">
+                      {new Date(msg.timestamp).toLocaleTimeString()}
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
-            <div className="p-4 border-t border-gray-700">
+            <div className="p-6 border-t-2 border-white/20">
               <div className="flex gap-2">
-                <input
+                <Input
                   type="text"
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
+                  onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
                   placeholder="Type a message..."
-                  className="flex-1 bg-gray-700 text-white px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-gray-300 backdrop-blur-sm"
                 />
-                <button
+                <Button
                   onClick={sendChatMessage}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                  size="lg"
+                  className="bg-black hover:bg-gray-900 text-white shadow-lg"
                 >
                   Send
-                </button>
+                </Button>
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Controls */}
-      <div className="bg-gray-800 px-6 py-4 flex justify-center items-center gap-4">
-        <button
+      {/* Control Dock */}
+      <ControlDock>
+        <Button
           onClick={toggleAudio}
-          className={`p-4 rounded-full ${
-            isAudioEnabled ? 'bg-gray-700 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700'
-          }`}
+          variant={isAudioEnabled ? 'outline' : 'default'}
+          size="icon"
+          className={
+            !isAudioEnabled
+              ? 'bg-red-600 hover:bg-red-700 text-white w-12 h-12 rounded-full'
+              : 'bg-white/10 border border-white/30 text-white hover:bg-white/20 w-12 h-12 rounded-full'
+          }
           title={isAudioEnabled ? 'Mute' : 'Unmute'}
         >
-          <span className="text-white text-xl">{isAudioEnabled ? '🎤' : '🔇'}</span>
-        </button>
+          {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+        </Button>
 
-        <button
+        <Button
           onClick={toggleVideo}
-          className={`p-4 rounded-full ${
-            isVideoEnabled ? 'bg-gray-700 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700'
-          }`}
-          title={isVideoEnabled ? 'Stop Video' : 'Start Video'}
+          variant={isVideoEnabled ? 'outline' : 'default'}
+          size="icon"
+          className={
+            !isVideoEnabled
+              ? 'bg-red-600 hover:bg-red-700 text-white w-12 h-12 rounded-full'
+              : 'bg-white/10 border border-white/30 text-white hover:bg-white/20 w-12 h-12 rounded-full'
+          }
+          title={isVideoEnabled ? 'Stop video' : 'Start video'}
         >
-          <span className="text-white text-xl">{isVideoEnabled ? '📹' : '📷'}</span>
-        </button>
+          {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+        </Button>
 
-        <button
+        <Button
           onClick={toggleScreenShare}
-          className={`p-4 rounded-full ${
-            isScreenSharing ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-700 hover:bg-gray-600'
-          }`}
-          title={isScreenSharing ? 'Stop Sharing' : 'Share Screen'}
+          variant={isScreenSharing ? 'default' : 'outline'}
+          size="icon"
+          className={
+            isScreenSharing
+              ? 'bg-white/20 hover:bg-white/30 text-white w-12 h-12 rounded-full'
+              : 'bg-white/10 border border-white/30 text-white hover:bg-white/20 w-12 h-12 rounded-full'
+          }
+          title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
         >
-          <span className="text-white text-xl">🖥️</span>
-        </button>
+          {isScreenSharing ? <MonitorStop className="w-5 h-5" /> : <MonitorUp className="w-5 h-5" />}
+        </Button>
 
-        <button
+        <Button
           onClick={() => setShowChat(!showChat)}
-          className="p-4 rounded-full bg-gray-700 hover:bg-gray-600 relative"
-          title="Toggle Chat"
+          variant="outline"
+          size="icon"
+          className="relative bg-white/10 border border-white/30 text-white hover:bg-white/20 w-12 h-12 rounded-full"
+          title={showChat ? 'Hide chat' : 'Show chat'}
         >
-          <span className="text-white text-xl">💬</span>
+          {showChat ? <MessageSquareOff className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
           {chatMessages.length > 0 && !showChat && (
-            <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
               {chatMessages.length}
             </span>
           )}
-        </button>
+        </Button>
 
-        <button
+        <DockDivider />
+
+        <Button
           onClick={leaveRoom}
-          className="p-4 rounded-full bg-red-600 hover:bg-red-700"
-          title="Leave Room"
+          variant="default"
+          size="icon"
+          className="bg-red-600 hover:bg-red-700 w-12 h-12 rounded-full"
+          title="Leave room"
         >
-          <span className="text-white text-xl">📞</span>
-        </button>
-      </div>
+          <LogOut className="w-5 h-5" />
+        </Button>
+      </ControlDock>
     </div>
   );
 }

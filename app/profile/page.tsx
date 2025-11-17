@@ -99,7 +99,10 @@ export default function Profile() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-indigo-600">Zetra</h1>
+          <div className="flex items-center gap-3">
+            <img src="/zetra-logo.svg" alt="Zetra" className="w-8 h-8" />
+            <h1 className="text-2xl font-bold text-black">Zetra</h1>
+          </div>
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.push('/dashboard')}
