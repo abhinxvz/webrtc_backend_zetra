@@ -4,8 +4,8 @@ services:
     env: node
     region: oregon
     plan: free
-    buildCommand: npm install && npm run build:backend
-    startCommand: npm run start:backend
+    buildCommand: npm install --production=false && npx tsc --project tsconfig.server.json
+    startCommand: node dist/server/index.js
     envVars:
       - key: NODE_ENV
         value: production
