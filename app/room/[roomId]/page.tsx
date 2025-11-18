@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { AnimatedButton } from '@/components/ui/animated-button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { CardSpotlight } from '@/components/ui/card-spotlight';
 import MeetingSummarizer from '@/components/MeetingSummarizer';
 import { 
   Navbar, 
@@ -457,18 +458,18 @@ export default function Room() {
       {/* Name Prompt Modal */}
       {showNamePrompt && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="max-w-md w-full bg-gradient-to-br from-gray-900 to-black border-2 border-white/30 p-8">
+          <CardSpotlight className="max-w-md w-full p-8">
             <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">👋</span>
+              <div className="w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                <img src="/zetra-logo.svg" alt="Zetra" className="w-full h-full" />
               </div>
-              <h2 className="text-2xl font-bold text-white mb-2">Join Video Call</h2>
-              <p className="text-gray-400 text-sm">Enter your name to join the meeting</p>
+              <h2 className="text-3xl font-bold text-white mb-2">Join Video Call</h2>
+              <p className="text-gray-300 text-sm">Enter your name to join the meeting</p>
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-200 mb-2">
                   Your Name
                 </label>
                 <Input
@@ -477,7 +478,7 @@ export default function Room() {
                   onChange={(e) => setTempName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
                   placeholder="Enter your name..."
-                  className="w-full bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                  className="w-full bg-white/10 border-white/20 text-white placeholder:text-gray-400 h-12 text-base"
                   autoFocus
                 />
               </div>
@@ -486,19 +487,20 @@ export default function Room() {
                 <Button
                   onClick={() => router.push('/dashboard')}
                   variant="outline"
-                  className="flex-1 bg-transparent border-white/20 text-white hover:bg-white/10"
+                  className="flex-1 bg-transparent border-white/30 text-white hover:bg-white/10 h-12"
                 >
                   Cancel
                 </Button>
-                <Button
+                <AnimatedButton
                   onClick={handleJoinRoom}
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                  className="flex-1 h-12"
+                  size="lg"
                 >
                   Join Room
-                </Button>
+                </AnimatedButton>
               </div>
             </div>
-          </Card>
+          </CardSpotlight>
         </div>
       )}
 

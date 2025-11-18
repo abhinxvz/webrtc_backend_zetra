@@ -40,6 +40,8 @@ export default function Dashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [recentSummaries, setRecentSummaries] = useState<MeetingSummary[]>([]);
   const [summariesLoading, setSummariesLoading] = useState(true);
+  const [dashboardStats, setDashboardStats] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -63,17 +65,55 @@ export default function Dashboard() {
 
       // Fetch recent summaries
       fetchRecentSummaries(uid);
+      
+      // Fetch dashboard stats
+      fetchDashboardStats();
     } catch (error) {
       console.error('Token decode error:', error);
     }
   }, [router]);
+
+  const fetchDashboardStats = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+      
+      console.log('Fetching dashboard stats from:', `${apiUrl}/api/call-logs/dashboard`);
+      
+      const response = await fetch(`${apiUrl}/api/call-logs/dashboard`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.warn('Dashboard stats not available:', response.status);
+        setDashboardStats(null);
+        return;
+      }
+
+      const data = await response.json();
+      console.log('Dashboard stats received:', data);
+      
+      if (data.success) {
+        setDashboardStats(data.data);
+      } else {
+        setDashboardStats(null);
+      }
+    } catch (error) {
+      console.log('Dashboard stats endpoint not available (this is optional)');
+      setDashboardStats(null);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
 
   const fetchRecentSummaries = async (uid: string) => {
     try {
       const token = localStorage.getItem('token');
       const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
       
-      console.log('Fetching summaries from:', apiUrl);
+      console.log('Fetching summaries from:', `${apiUrl}/api/meeting-summary/user/${uid}`);
       
       const response = await fetch(
         `${apiUrl}/api/meeting-summary/user/${uid}`,
@@ -85,16 +125,19 @@ export default function Dashboard() {
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        console.warn('Summaries not available:', response.status);
+        setRecentSummaries([]);
+        return;
       }
 
       const data = await response.json();
       if (data.success) {
         setRecentSummaries(data.data.slice(0, 3)); // Only show 3 most recent
+      } else {
+        setRecentSummaries([]);
       }
     } catch (error) {
-      console.error('Error fetching summaries:', error);
-      // Set empty array on error so UI doesn't break
+      console.log('Summaries endpoint not available (this is optional)');
       setRecentSummaries([]);
     } finally {
       setSummariesLoading(false);
@@ -209,13 +252,81 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-6 py-16 relative z-10">
-        <div className="text-center mb-16">
+        <div className="text-center mb-12">
           <h2 className="text-5xl font-bold text-white mb-4 tracking-tight drop-shadow-lg">
-            Start your video call
+            Welcome back, {username || 'User'}!
           </h2>
           <p className="text-lg text-gray-200 max-w-2xl mx-auto">
-            Create a new room or join an existing one to connect with others
+            Here's your call activity overview
           </p>
+        </div>
+
+        {/* Dashboard Stats */}
+        {!statsLoading && dashboardStats && (
+          <div className="mb-12">
+            {/* Overview Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                <CardHeader className="pb-2">
+                  <CardDescription className="text-gray-300 text-xs">Total Calls</CardDescription>
+                  <CardTitle className="text-3xl text-white">{dashboardStats.overview?.totalCalls || 0}</CardTitle>
+                </CardHeader>
+              </Card>
+              <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                <CardHeader className="pb-2">
+                  <CardDescription className="text-gray-300 text-xs">Completed</CardDescription>
+                  <CardTitle className="text-3xl text-white">{dashboardStats.overview?.completedCalls || 0}</CardTitle>
+                </CardHeader>
+              </Card>
+              <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                <CardHeader className="pb-2">
+                  <CardDescription className="text-gray-300 text-xs">Active Now</CardDescription>
+                  <CardTitle className="text-3xl text-green-400">{dashboardStats.overview?.activeCalls || 0}</CardTitle>
+                </CardHeader>
+              </Card>
+              <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                <CardHeader className="pb-2">
+                  <CardDescription className="text-gray-300 text-xs">Avg Duration</CardDescription>
+                  <CardTitle className="text-3xl text-white">
+                    {Math.floor((dashboardStats.overview?.averageDuration || 0) / 60)}m
+                  </CardTitle>
+                </CardHeader>
+              </Card>
+            </div>
+
+            {/* Time Period Stats */}
+            <div className="grid md:grid-cols-3 gap-4 mb-8">
+              <Card className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 backdrop-blur-md border-white/20">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg">Today</CardTitle>
+                  <CardDescription className="text-gray-200">
+                    {dashboardStats.today?.calls || 0} calls • {Math.floor((dashboardStats.today?.duration || 0) / 60)}m
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+              <Card className="bg-gradient-to-br from-green-500/20 to-teal-500/20 backdrop-blur-md border-white/20">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg">This Week</CardTitle>
+                  <CardDescription className="text-gray-200">
+                    {dashboardStats.thisWeek?.calls || 0} calls • {Math.floor((dashboardStats.thisWeek?.duration || 0) / 60)}m
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+              <Card className="bg-gradient-to-br from-orange-500/20 to-red-500/20 backdrop-blur-md border-white/20">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg">This Month</CardTitle>
+                  <CardDescription className="text-gray-200">
+                    {dashboardStats.thisMonth?.calls || 0} calls • {Math.floor((dashboardStats.thisMonth?.duration || 0) / 60)}m
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        <div className="text-center mb-8">
+          <h3 className="text-3xl font-bold text-white mb-2">Start your video call</h3>
+          <p className="text-gray-200">Create a new room or join an existing one</p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8 mb-16">
