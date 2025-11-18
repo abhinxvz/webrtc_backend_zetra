@@ -49,6 +49,25 @@ app.use((req, res, next) => {
 // Database connection
 connectDB();
 
+// Root route
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Zetra Backend API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/health',
+      auth: '/api/auth',
+      rooms: '/api/room',
+      users: '/api/user',
+      callLogs: '/api/call-logs',
+      iceServers: '/api/ice-servers',
+      meetingSummary: '/api/meeting-summary',
+    },
+    documentation: 'Visit /health for server status',
+  });
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/room', roomRoutes);
