@@ -58,6 +58,8 @@ export default function Room() {
   const [remoteUsers, setRemoteUsers] = useState<string[]>([]);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const [remoteUsernames, setRemoteUsernames] = useState<Map<string, string>>(new Map());
+  const [callDuration, setCallDuration] = useState(0);
+  const callStartTimeRef = useRef<number | null>(null);
   const iceCandidatesQueueRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
 
   useEffect(() => {
@@ -84,7 +86,21 @@ export default function Room() {
     }
     setUsername(tempName.trim());
     setShowNamePrompt(false);
+    // Start call timer
+    callStartTimeRef.current = Date.now();
   };
+
+  // Call duration timer
+  useEffect(() => {
+    if (!callStartTimeRef.current) return;
+
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - callStartTimeRef.current!) / 1000);
+      setCallDuration(elapsed);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [callStartTimeRef.current]);
 
   useEffect(() => {
     if (!username || showNamePrompt) return;
@@ -463,6 +479,17 @@ export default function Room() {
     alert('Room ID copied!');
   };
 
+  const formatDuration = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-black relative">
       {/* Name Prompt Modal */}
@@ -539,7 +566,15 @@ export default function Room() {
               </Button>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-white/20">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm font-semibold text-white font-mono">
+                {formatDuration(callDuration)}
+              </span>
+            </div>
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`} />
               <span className="text-sm font-medium text-gray-200">
