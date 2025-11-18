@@ -7,7 +7,6 @@ import mongoose from 'mongoose';
 import connectDB from './config/database';
 import { corsOptions } from './config/cors';
 import authRoutes from './routes/authRoutes';
-import googleAuthRoutes from "./routes/googleAuth";
 import roomRoutes from './routes/room';
 import callLogRoutes from './routes/callLogRoutes';
 import userRoutes from './routes/userRoutes';
@@ -52,7 +51,6 @@ connectDB();
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use("/api/auth", googleAuthRoutes);
 app.use('/api/room', roomRoutes);
 app.use('/api/call-logs', callLogRoutes);
 app.use('/api/user', userRoutes);
