@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const callLogController_1 = require("../controllers/callLogController");
+const auth_1 = require("../middleware/auth");
+const router = (0, express_1.Router)();
+router.get('/', auth_1.authenticateToken, callLogController_1.getUserCallLogs);
+router.post('/', auth_1.authenticateToken, callLogController_1.createCallLog);
+router.put('/:roomId/end', auth_1.authenticateToken, callLogController_1.endCallLog);
+router.get('/stats', auth_1.authenticateToken, callLogController_1.getCallLogStats);
+exports.default = router;

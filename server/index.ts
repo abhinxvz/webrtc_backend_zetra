@@ -141,7 +141,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('offer', (roomId: string, offer: RTCSessionDescriptionInit) => {
+  socket.on('offer', (roomId: string, offer: any) => {
     try {
       if (!roomId || !offer) {
         logger.warn('Invalid offer parameters', { roomId, socketId: socket.id });
@@ -155,7 +155,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('answer', (roomId: string, answer: RTCSessionDescriptionInit) => {
+  socket.on('answer', (roomId: string, answer: any) => {
     try {
       if (!roomId || !answer) {
         logger.warn('Invalid answer parameters', { roomId, socketId: socket.id });
@@ -169,7 +169,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('ice-candidate', (roomId: string, candidate: RTCIceCandidateInit) => {
+  socket.on('ice-candidate', (roomId: string, candidate: any) => {
     try {
       if (!roomId || !candidate) {
         logger.warn('Invalid ICE candidate parameters', { roomId, socketId: socket.id });
