@@ -53,6 +53,7 @@ export default function Room() {
   const screenStreamRef = useRef<MediaStream | null>(null);
   const [userId, setUserId] = useState<string>('');
   const [remoteUsers, setRemoteUsers] = useState<string[]>([]);
+  const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const iceCandidatesQueueRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
 
   useEffect(() => {
@@ -117,11 +118,12 @@ export default function Room() {
       peerConnection.ontrack = (event) => {
         console.log('Received remote track from:', targetUserId, event.streams[0]);
         if (event.streams[0]) {
-          // For now, show first remote user in the remote video element
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = event.streams[0];
-            console.log('Set remote video stream for:', targetUserId);
-          }
+          setRemoteStreams(prev => {
+            const newStreams = new Map(prev);
+            newStreams.set(targetUserId, event.streams[0]);
+            return newStreams;
+          });
+          console.log('Added remote stream for:', targetUserId);
         }
       };
 
@@ -293,10 +295,11 @@ export default function Room() {
           }
           
           setRemoteUsers(prev => prev.filter(id => id !== disconnectedUserId));
-          
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = null;
-          }
+          setRemoteStreams(prev => {
+            const newStreams = new Map(prev);
+            newStreams.delete(disconnectedUserId);
+            return newStreams;
+          });
         });
 
         socketInstance.on('chat-message', (data: { message: string; username: string; timestamp: Date }) => {
@@ -497,24 +500,30 @@ export default function Room() {
 
         {/* Video Grid */}
         <div className="flex-1 flex items-center justify-center p-6 pb-32">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-7xl w-full max-h-[calc(100vh-200px)]">
+          <div className={`grid gap-4 w-full max-w-7xl ${
+            remoteStreams.size === 0 ? 'grid-cols-1 max-w-2xl' :
+            remoteStreams.size === 1 ? 'grid-cols-1 md:grid-cols-2' :
+            remoteStreams.size === 2 ? 'grid-cols-1 md:grid-cols-3' :
+            'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+          }`}>
             {/* Local Video */}
-            <Card className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black backdrop-blur-sm border-2 border-white/30 rounded-3xl shadow-2xl hover:border-white/50 transition-all duration-300 hover:scale-[1.02]">
+            <Card className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black backdrop-blur-sm border-2 border-green-500/50 rounded-2xl shadow-2xl hover:border-green-500 transition-all duration-300">
               <video
                 ref={localVideoRef}
                 autoPlay
                 muted
                 playsInline
-                className="w-full h-full object-cover transition-all duration-300 rounded-3xl"
+                className="w-full h-full object-cover rounded-2xl"
+                style={{ minHeight: '300px', maxHeight: '500px' }}
               />
-              <div className="absolute bottom-6 left-6 bg-black/80 backdrop-blur-lg px-5 py-2.5 rounded-2xl border border-white/20">
+              <div className="absolute bottom-4 left-4 bg-black/80 backdrop-blur-lg px-4 py-2 rounded-xl border border-white/20">
                 <p className="text-white text-sm font-semibold">You ({username})</p>
               </div>
               {!isVideoEnabled && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-900 rounded-2xl">
                   <div className="text-center">
-                    <div className="w-24 h-24 bg-black rounded-full flex items-center justify-center mx-auto mb-3 border-4 border-white">
-                      <span className="text-4xl text-white font-bold">{username.charAt(0).toUpperCase()}</span>
+                    <div className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-2 border-4 border-white">
+                      <span className="text-3xl text-white font-bold">{username.charAt(0).toUpperCase()}</span>
                     </div>
                     <p className="text-white text-sm font-medium">Camera off</p>
                   </div>
@@ -522,33 +531,41 @@ export default function Room() {
               )}
             </Card>
 
-            {/* Remote Video */}
-            <Card className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black backdrop-blur-sm border-2 border-white/30 rounded-3xl shadow-2xl hover:border-white/50 transition-all duration-300 hover:scale-[1.02]">
-              <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover rounded-3xl relative z-10"
-                style={{ minHeight: '400px' }}
-                onLoadedMetadata={() => console.log('✅ Remote video metadata loaded')}
-                onPlay={() => console.log('✅ Remote video playing')}
-              />
-              <div className="absolute bottom-6 left-6 bg-black/80 backdrop-blur-lg px-5 py-2.5 rounded-2xl border border-white/20 z-10">
-                <p className="text-white text-sm font-semibold">
-                  {remoteUsers.length > 0 ? `Remote user (${remoteUsers.length})` : 'Remote user'}
-                </p>
-              </div>
-              {remoteUsers.length === 0 && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-900 z-0">
+            {/* Remote Videos - Dynamic Grid */}
+            {Array.from(remoteStreams.entries()).map(([userId, stream]) => (
+              <Card key={userId} className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black backdrop-blur-sm border-2 border-blue-500/50 rounded-2xl shadow-2xl hover:border-blue-500 transition-all duration-300">
+                <video
+                  autoPlay
+                  playsInline
+                  ref={(el) => {
+                    if (el && el.srcObject !== stream) {
+                      el.srcObject = stream;
+                    }
+                  }}
+                  className="w-full h-full object-cover rounded-2xl"
+                  style={{ minHeight: '300px', maxHeight: '500px' }}
+                  onLoadedMetadata={() => console.log('✅ Video loaded for:', userId)}
+                />
+                <div className="absolute bottom-4 left-4 bg-black/80 backdrop-blur-lg px-4 py-2 rounded-xl border border-white/20">
+                  <p className="text-white text-sm font-semibold">User {userId.slice(0, 8)}</p>
+                </div>
+              </Card>
+            ))}
+
+            {/* Waiting Placeholder - Only show if no remote users */}
+            {remoteStreams.size === 0 && (
+              <Card className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black backdrop-blur-sm border-2 border-white/30 rounded-2xl shadow-2xl">
+                <div className="flex items-center justify-center" style={{ minHeight: '300px' }}>
                   <div className="text-center">
-                    <div className="w-24 h-24 bg-black rounded-full flex items-center justify-center mx-auto mb-3 border-4 border-white">
-                      <span className="text-4xl text-white font-bold">?</span>
+                    <div className="w-20 h-20 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3 border-4 border-white/50">
+                      <span className="text-3xl text-white font-bold">?</span>
                     </div>
-                    <p className="text-white text-sm font-medium">Waiting for user...</p>
+                    <p className="text-white text-sm font-medium">Waiting for others to join...</p>
+                    <p className="text-gray-400 text-xs mt-2">Share the room ID to invite</p>
                   </div>
                 </div>
-              )}
-            </Card>
+              </Card>
+            )}
           </div>
         </div>
 
