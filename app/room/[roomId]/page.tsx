@@ -57,6 +57,7 @@ export default function Room() {
   const [userId, setUserId] = useState<string>('');
   const [remoteUsers, setRemoteUsers] = useState<string[]>([]);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
+  const [remoteUsernames, setRemoteUsernames] = useState<Map<string, string>>(new Map());
   const iceCandidatesQueueRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
 
   useEffect(() => {
@@ -319,8 +320,17 @@ export default function Room() {
           });
         });
 
-        socketInstance.on('chat-message', (data: { message: string; username: string; timestamp: Date }) => {
+        socketInstance.on('chat-message', (data: { message: string; username: string; timestamp: Date; userId?: string }) => {
           setChatMessages((prev) => [...prev, data]);
+          
+          // Store username mapping from chat messages
+          if (data.userId && data.username) {
+            setRemoteUsernames(prev => {
+              const newMap = new Map(prev);
+              newMap.set(data.userId!, data.username);
+              return newMap;
+            });
+          }
         });
       } catch (error: any) {
         console.error('Error accessing media devices:', error);
@@ -433,8 +443,8 @@ export default function Room() {
   };
 
   const sendChatMessage = () => {
-    if (chatInput.trim() && socket) {
-      socket.emit('chat-message', roomId, chatInput, username);
+    if (chatInput.trim() && socket && userId) {
+      socket.emit('chat-message', roomId, chatInput, username, userId);
       setChatInput('');
     }
   };
@@ -598,25 +608,28 @@ export default function Room() {
             </Card>
 
             {/* Remote Videos - Dynamic Grid */}
-            {Array.from(remoteStreams.entries()).map(([userId, stream]) => (
-              <Card key={userId} className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black backdrop-blur-sm border-2 border-blue-500/50 rounded-2xl shadow-2xl hover:border-blue-500 transition-all duration-300">
-                <video
-                  autoPlay
-                  playsInline
-                  ref={(el) => {
-                    if (el && el.srcObject !== stream) {
-                      el.srcObject = stream;
-                    }
-                  }}
-                  className="w-full h-full object-cover rounded-2xl"
-                  style={{ minHeight: '300px', maxHeight: '500px' }}
-                  onLoadedMetadata={() => console.log('✅ Video loaded for:', userId)}
-                />
-                <div className="absolute bottom-4 left-4 bg-black/80 backdrop-blur-lg px-4 py-2 rounded-xl border border-white/20">
-                  <p className="text-white text-sm font-semibold">User {userId.slice(0, 8)}</p>
-                </div>
-              </Card>
-            ))}
+            {Array.from(remoteStreams.entries()).map(([userId, stream]) => {
+              const displayName = remoteUsernames.get(userId) || `User ${userId.slice(0, 8)}`;
+              return (
+                <Card key={userId} className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black backdrop-blur-sm border-2 border-blue-500/50 rounded-2xl shadow-2xl hover:border-blue-500 transition-all duration-300">
+                  <video
+                    autoPlay
+                    playsInline
+                    ref={(el) => {
+                      if (el && el.srcObject !== stream) {
+                        el.srcObject = stream;
+                      }
+                    }}
+                    className="w-full h-full object-cover rounded-2xl"
+                    style={{ minHeight: '300px', maxHeight: '500px' }}
+                    onLoadedMetadata={() => console.log('✅ Video loaded for:', userId)}
+                  />
+                  <div className="absolute bottom-4 left-4 bg-black/80 backdrop-blur-lg px-4 py-2 rounded-xl border border-white/20">
+                    <p className="text-white text-sm font-semibold">{displayName}</p>
+                  </div>
+                </Card>
+              );
+            })}
 
             {/* Waiting Placeholder - Only show if no remote users */}
             {remoteStreams.size === 0 && (
