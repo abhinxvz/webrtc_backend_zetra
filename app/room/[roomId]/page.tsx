@@ -115,9 +115,13 @@ export default function Room() {
 
       // Handle incoming tracks
       peerConnection.ontrack = (event) => {
-        console.log('Received remote track from:', targetUserId);
-        if (remoteVideoRef.current && event.streams[0]) {
-          remoteVideoRef.current.srcObject = event.streams[0];
+        console.log('Received remote track from:', targetUserId, event.streams[0]);
+        if (event.streams[0]) {
+          // For now, show first remote user in the remote video element
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = event.streams[0];
+            console.log('Set remote video stream for:', targetUserId);
+          }
         }
       };
 
@@ -524,19 +528,26 @@ export default function Room() {
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
-                className="w-full h-full object-cover rounded-3xl"
+                className="w-full h-full object-cover rounded-3xl relative z-10"
+                style={{ minHeight: '400px' }}
+                onLoadedMetadata={() => console.log('✅ Remote video metadata loaded')}
+                onPlay={() => console.log('✅ Remote video playing')}
               />
-              <div className="absolute bottom-6 left-6 bg-black/80 backdrop-blur-lg px-5 py-2.5 rounded-2xl border border-white/20">
-                <p className="text-white text-sm font-semibold">Remote user</p>
+              <div className="absolute bottom-6 left-6 bg-black/80 backdrop-blur-lg px-5 py-2.5 rounded-2xl border border-white/20 z-10">
+                <p className="text-white text-sm font-semibold">
+                  {remoteUsers.length > 0 ? `Remote user (${remoteUsers.length})` : 'Remote user'}
+                </p>
               </div>
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
-                <div className="text-center">
-                  <div className="w-24 h-24 bg-black rounded-full flex items-center justify-center mx-auto mb-3 border-4 border-white">
-                    <span className="text-4xl text-white font-bold">?</span>
+              {remoteUsers.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-900 z-0">
+                  <div className="text-center">
+                    <div className="w-24 h-24 bg-black rounded-full flex items-center justify-center mx-auto mb-3 border-4 border-white">
+                      <span className="text-4xl text-white font-bold">?</span>
+                    </div>
+                    <p className="text-white text-sm font-medium">Waiting for user...</p>
                   </div>
-                  <p className="text-white text-sm font-medium">Waiting for user...</p>
                 </div>
-              </div>
+              )}
             </Card>
           </div>
         </div>
