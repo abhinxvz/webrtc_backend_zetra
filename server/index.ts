@@ -259,9 +259,10 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   logger.info(`Server running on port ${PORT}`, { 
     environment: env.NODE_ENV,
     port: PORT,
+    host: '0.0.0.0',
   });
 });
