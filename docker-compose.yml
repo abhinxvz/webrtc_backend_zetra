@@ -1,20 +1,21 @@
 version: '3.8'
 
 services:
+  # MongoDB Database
   mongodb:
-    image: mongo:7.0
+    image: mongo:7
     container_name: zetra-mongodb
     restart: unless-stopped
     ports:
       - "27017:27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: zetra
     volumes:
       - mongodb_data:/data/db
     networks:
       - zetra-network
 
+  # Backend Service
   backend:
     build:
       context: .
@@ -24,41 +25,46 @@ services:
     ports:
       - "4000:4000"
     environment:
-      - NODE_ENV=development
-      - PORT=4000
-      - MONGO_URI=mongodb://admin:admin123@mongodb:27017/zetra?authSource=admin
-      - JWT_SECRET=your_super_secret_jwt_key_change_in_production
-      - SOCKET_URL=http://localhost:4000
-      - NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+      NODE_ENV: production
+      PORT: 4000
+      MONGO_URI: mongodb://mongodb:27017/zetra
+      JWT_SECRET: ${JWT_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      TURN_SERVER_URL: turn:openrelay.metered.ca:80
+      TURN_SERVER_USERNAME: openrelayproject
+      TURN_SERVER_CREDENTIAL: openrelayproject
     depends_on:
       - mongodb
-    volumes:
-      - ./server:/app/server
-      - /app/node_modules
     networks:
       - zetra-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
+  # Frontend Service
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.frontend
     container_name: zetra-frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_API_BASE_URL=http://localhost:4000
-      - SOCKET_URL=http://localhost:4000
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE_URL: http://backend:4000
     depends_on:
       - backend
     networks:
       - zetra-network
 
-volumes:
-  mongodb_data:
-    driver: local
-
 networks:
   zetra-network:
     driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local

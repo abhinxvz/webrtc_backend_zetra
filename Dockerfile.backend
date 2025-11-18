@@ -1,21 +1,33 @@
-FROM node:20-alpine
+# Backend Dockerfile
+FROM node:20-alpine AS base
 
+# Build stage
+FROM base AS builder
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json ./
+# Copy backend package.json
+COPY server/package.json ./
+RUN npm install
 
-# Install dependencies
-RUN npm ci
+# Copy backend source and tsconfig
+COPY server ./
+COPY tsconfig.server.json ../
 
-# Copy server source code
-COPY server ./server
-COPY tsconfig.json ./
+# Build TypeScript
+RUN npm run build
 
-# Install ts-node globally for running TypeScript
-RUN npm install -g ts-node typescript
+# Production stage
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Copy built files and dependencies
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/../dist/server ./
 
 EXPOSE 4000
 
-# Run the backend server
-CMD ["npx", "ts-node", "server/index.ts"]
+ENV PORT=4000
+
+CMD ["node", "index.js"]
