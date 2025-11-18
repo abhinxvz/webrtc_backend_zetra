@@ -44,8 +44,10 @@ export default function Room() {
   const [chatMessages, setChatMessages] = useState<Array<{ username: string; message: string; timestamp: Date }>>([]);
   const [chatInput, setChatInput] = useState('');
   const [showChat, setShowChat] = useState(false);
-  const [username, setUsername] = useState('User');
+  const [username, setUsername] = useState('');
   const [showSummarizer, setShowSummarizer] = useState(false);
+  const [showNamePrompt, setShowNamePrompt] = useState(true);
+  const [tempName, setTempName] = useState('');
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
@@ -66,10 +68,24 @@ export default function Room() {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       setUserId(payload.userId || 'anonymous');
-      setUsername(payload.username || 'User');
+      // Don't set username yet - wait for user input
+      setTempName(payload.username || '');
     } catch (error) {
       console.error('Token decode error:', error);
     }
+  }, [router]);
+
+  const handleJoinRoom = () => {
+    if (!tempName.trim()) {
+      alert('Please enter your name');
+      return;
+    }
+    setUsername(tempName.trim());
+    setShowNamePrompt(false);
+  };
+
+  useEffect(() => {
+    if (!username || showNamePrompt) return;
 
     const socketInstance = io(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000');
     setSocket(socketInstance);
@@ -334,7 +350,7 @@ export default function Room() {
       peerConnectionsRef.current.clear();
       socketInstance.disconnect();
     };
-  }, [roomId, router, userId]);
+  }, [roomId, router, userId, username, showNamePrompt]);
 
   const toggleAudio = () => {
     if (localStreamRef.current) {
@@ -438,6 +454,54 @@ export default function Room() {
 
   return (
     <div className="min-h-screen flex flex-col bg-black relative">
+      {/* Name Prompt Modal */}
+      {showNamePrompt && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="max-w-md w-full bg-gradient-to-br from-gray-900 to-black border-2 border-white/30 p-8">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">👋</span>
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">Join Video Call</h2>
+              <p className="text-gray-400 text-sm">Enter your name to join the meeting</p>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Your Name
+                </label>
+                <Input
+                  type="text"
+                  value={tempName}
+                  onChange={(e) => setTempName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
+                  placeholder="Enter your name..."
+                  className="w-full bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                  autoFocus
+                />
+              </div>
+              
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => router.push('/dashboard')}
+                  variant="outline"
+                  className="flex-1 bg-transparent border-white/20 text-white hover:bg-white/10"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleJoinRoom}
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                >
+                  Join Room
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
 
       {/* Navigation */}
       <Navbar className="top-0 relative z-50">
