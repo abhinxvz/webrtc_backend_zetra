@@ -71,8 +71,12 @@ export default function Dashboard() {
   const fetchRecentSummaries = async (uid: string) => {
     try {
       const token = localStorage.getItem('token');
+      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+      
+      console.log('Fetching summaries from:', apiUrl);
+      
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/meeting-summary/user/${uid}`,
+        `${apiUrl}/api/meeting-summary/user/${uid}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -80,12 +84,18 @@ export default function Dashboard() {
         }
       );
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
       if (data.success) {
         setRecentSummaries(data.data.slice(0, 3)); // Only show 3 most recent
       }
     } catch (error) {
       console.error('Error fetching summaries:', error);
+      // Set empty array on error so UI doesn't break
+      setRecentSummaries([]);
     } finally {
       setSummariesLoading(false);
     }
