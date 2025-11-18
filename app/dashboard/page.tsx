@@ -78,30 +78,37 @@ export default function Dashboard() {
       const token = localStorage.getItem('token');
       const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
       
-      console.log('Fetching dashboard stats from:', `${apiUrl}/api/call-logs/dashboard`);
+      console.log(' Fetching dashboard stats from:', `${apiUrl}/api/call-logs/dashboard`);
+      console.log(' Token:', token ? 'Present' : 'Missing');
       
       const response = await fetch(`${apiUrl}/api/call-logs/dashboard`, {
         headers: {
           Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
 
+      console.log('📊 Response status:', response.status);
+
       if (!response.ok) {
-        console.warn('Dashboard stats not available:', response.status);
+        const errorText = await response.text();
+        console.error('❌ Dashboard stats error:', response.status, errorText);
         setDashboardStats(null);
         return;
       }
 
       const data = await response.json();
-      console.log('Dashboard stats received:', data);
+      console.log('✅ Dashboard stats received:', data);
       
       if (data.success) {
+        console.log('📈 Stats data:', data.data);
         setDashboardStats(data.data);
       } else {
+        console.warn('⚠️ API returned success: false');
         setDashboardStats(null);
       }
     } catch (error) {
-      console.log('Dashboard stats endpoint not available (this is optional)');
+      console.error('💥 Dashboard stats fetch error:', error);
       setDashboardStats(null);
     } finally {
       setStatsLoading(false);
@@ -256,39 +263,79 @@ export default function Dashboard() {
           <h2 className="text-5xl font-bold text-white mb-4 tracking-tight drop-shadow-lg">
             Welcome back, {username || 'User'}!
           </h2>
-          <p className="text-lg text-gray-200 max-w-2xl mx-auto">
+          <p className="text-lg text-gray-200 max-w-2xl mx-auto mb-4">
             Here's your call activity overview
           </p>
+          <Button
+            onClick={fetchDashboardStats}
+            variant="outline"
+            size="sm"
+            className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+          >
+            🔄 Refresh Stats
+          </Button>
         </div>
 
         {/* Dashboard Stats */}
+        {statsLoading && (
+          <div className="mb-12 text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            <p className="text-white mt-2">Loading stats...</p>
+          </div>
+        )}
+        
+        {!statsLoading && !dashboardStats && (
+          <div className="mb-12">
+            <Card className="bg-white/10 backdrop-blur-md border-white/20 p-6 text-center">
+              <p className="text-white text-lg mb-2">📊 No call data yet</p>
+              <p className="text-gray-300 text-sm">Make your first call to see statistics here!</p>
+            </Card>
+          </div>
+        )}
+        
         {!statsLoading && dashboardStats && (
           <div className="mb-12">
+            {/* Debug Info */}
+            <div className="mb-4 p-4 bg-blue-500/20 rounded-lg border border-blue-500/30">
+              <p className="text-white text-sm">
+                📊 Stats loaded: {JSON.stringify(dashboardStats).substring(0, 100)}...
+              </p>
+              <p className="text-white text-xs mt-1">
+                Check browser console for full data
+              </p>
+            </div>
+
             {/* Overview Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <Card className="bg-white/10 backdrop-blur-md border-white/20">
                 <CardHeader className="pb-2">
                   <CardDescription className="text-gray-300 text-xs">Total Calls</CardDescription>
-                  <CardTitle className="text-3xl text-white">{dashboardStats.overview?.totalCalls || 0}</CardTitle>
+                  <CardTitle className="text-3xl text-white">
+                    {dashboardStats?.overview?.totalCalls ?? dashboardStats?.totalCalls ?? 0}
+                  </CardTitle>
                 </CardHeader>
               </Card>
               <Card className="bg-white/10 backdrop-blur-md border-white/20">
                 <CardHeader className="pb-2">
                   <CardDescription className="text-gray-300 text-xs">Completed</CardDescription>
-                  <CardTitle className="text-3xl text-white">{dashboardStats.overview?.completedCalls || 0}</CardTitle>
+                  <CardTitle className="text-3xl text-white">
+                    {dashboardStats?.overview?.completedCalls ?? dashboardStats?.completedCalls ?? 0}
+                  </CardTitle>
                 </CardHeader>
               </Card>
               <Card className="bg-white/10 backdrop-blur-md border-white/20">
                 <CardHeader className="pb-2">
                   <CardDescription className="text-gray-300 text-xs">Active Now</CardDescription>
-                  <CardTitle className="text-3xl text-green-400">{dashboardStats.overview?.activeCalls || 0}</CardTitle>
+                  <CardTitle className="text-3xl text-green-400">
+                    {dashboardStats?.overview?.activeCalls ?? dashboardStats?.activeCalls ?? 0}
+                  </CardTitle>
                 </CardHeader>
               </Card>
               <Card className="bg-white/10 backdrop-blur-md border-white/20">
                 <CardHeader className="pb-2">
                   <CardDescription className="text-gray-300 text-xs">Avg Duration</CardDescription>
                   <CardTitle className="text-3xl text-white">
-                    {Math.floor((dashboardStats.overview?.averageDuration || 0) / 60)}m
+                    {Math.floor((dashboardStats?.overview?.averageDuration ?? dashboardStats?.averageDuration ?? 0) / 60)}m
                   </CardTitle>
                 </CardHeader>
               </Card>
@@ -300,7 +347,7 @@ export default function Dashboard() {
                 <CardHeader>
                   <CardTitle className="text-white text-lg">Today</CardTitle>
                   <CardDescription className="text-gray-200">
-                    {dashboardStats.today?.calls || 0} calls • {Math.floor((dashboardStats.today?.duration || 0) / 60)}m
+                    {dashboardStats?.today?.calls ?? 0} calls • {Math.floor((dashboardStats?.today?.duration ?? 0) / 60)}m
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -308,7 +355,7 @@ export default function Dashboard() {
                 <CardHeader>
                   <CardTitle className="text-white text-lg">This Week</CardTitle>
                   <CardDescription className="text-gray-200">
-                    {dashboardStats.thisWeek?.calls || 0} calls • {Math.floor((dashboardStats.thisWeek?.duration || 0) / 60)}m
+                    {dashboardStats?.thisWeek?.calls ?? 0} calls • {Math.floor((dashboardStats?.thisWeek?.duration ?? 0) / 60)}m
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -316,7 +363,7 @@ export default function Dashboard() {
                 <CardHeader>
                   <CardTitle className="text-white text-lg">This Month</CardTitle>
                   <CardDescription className="text-gray-200">
-                    {dashboardStats.thisMonth?.calls || 0} calls • {Math.floor((dashboardStats.thisMonth?.duration || 0) / 60)}m
+                    {dashboardStats?.thisMonth?.calls ?? 0} calls • {Math.floor((dashboardStats?.thisMonth?.duration ?? 0) / 60)}m
                   </CardDescription>
                 </CardHeader>
               </Card>
