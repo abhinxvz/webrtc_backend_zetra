@@ -4,6 +4,10 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Zetra - Video Calling Platform',
   description: 'Real-time video calling powered by WebRTC',
+  icons: {
+    icon: '/zetra-logo.svg',
+    apple: '/zetra-logo.svg',
+  },
 };
 
 export default function RootLayout({
