@@ -32,12 +32,7 @@ export default function Hero() {
           </button>
         </div>
 
-        {/* Footer Credit */}
-        <div className="absolute bottom-12 z-10">
-          <p className="garamond-italic text-black text-base font-bold">
-            Made by <a href="https://github.com/abhinxvz" target="_blank" rel="noopener noreferrer" className="hover:underline hover:opacity-70 transition">Abhinav</a>
-          </p>
-        </div>
+      
       </div>
   );
 }
