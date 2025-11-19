@@ -38,6 +38,18 @@ export default function AuthPage() {
         setError(response.error);
       } else if (response.data) {
         api.setToken(response.data.token);
+        
+        // Store user data in localStorage as backup
+        if (response.data.user) {
+          localStorage.setItem('userData', JSON.stringify(response.data.user));
+        } else {
+          // If user data not in response, store from form
+          localStorage.setItem('userData', JSON.stringify({
+            username: formData.username || formData.email.split('@')[0],
+            email: formData.email
+          }));
+        }
+        
         router.push('/dashboard');
       }
     } catch (err: any) {

@@ -48,6 +48,7 @@ export default function Room() {
   const [username, setUsername] = useState('');
   const [showSummarizer, setShowSummarizer] = useState(false);
   const [showNamePrompt, setShowNamePrompt] = useState(true);
+  const [callStartTime, setCallStartTime] = useState<Date | null>(null);
   const [tempName, setTempName] = useState('');
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -196,6 +197,9 @@ export default function Room() {
 
         // Join room
         socketInstance.emit('join-room', roomId, userId);
+        
+        // Track call start time
+        setCallStartTime(new Date());
 
         // Handle existing users in room
         socketInstance.on('existing-users', async (userIds: string[]) => {
@@ -465,7 +469,73 @@ export default function Room() {
     }
   };
 
-  const leaveRoom = () => {
+  const leaveRoom = async () => {
+    // Log the call before leaving
+    if (callStartTime) {
+      const endTime = new Date();
+      const duration = Math.floor((endTime.getTime() - callStartTime.getTime()) / 1000); // in seconds
+      
+      try {
+        const token = localStorage.getItem('token');
+        const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+        
+        // Get caller ID from token
+        let callerId = userId;
+        try {
+          const payload = JSON.parse(atob(token?.split('.')[1] || ''));
+          callerId = payload.userId || payload.id || userId;
+          console.log('🔑 Token payload:', payload);
+          console.log('👤 Extracted callerId:', callerId);
+        } catch (e) {
+          console.warn('Could not decode token for caller ID');
+        }
+        
+        // Use first remote user as receiver, or caller if no remote users
+        const receiverId = remoteUsers.length > 0 ? remoteUsers[0] : callerId;
+        
+        console.log('📋 Call data before sending:');
+        console.log('  - roomId:', roomId);
+        console.log('  - callerId:', callerId);
+        console.log('  - receiverId:', receiverId);
+        console.log('  - userId:', userId);
+        console.log('  - remoteUsers:', remoteUsers);
+        
+        const callLogData = {
+          roomId,
+          callerId,
+          receiverId,
+          participants: [userId, ...remoteUsers],
+          startTime: callStartTime.toISOString(),
+          endTime: endTime.toISOString(),
+          duration,
+        };
+        
+        console.log('📞 Full call log data:', JSON.stringify(callLogData, null, 2));
+        
+        const response = await fetch(`${apiUrl}/api/call-logs`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(callLogData),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('✅ Call logged successfully:', data);
+        } else {
+          const errorText = await response.text();
+          console.error('❌ Failed to log call:', response.status, errorText);
+        }
+      } catch (error) {
+        console.error('💥 Error logging call:', error);
+      }
+    } else {
+      console.warn('⚠️ No call start time recorded');
+    }
+    
+    // Clean up
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
     screenStreamRef.current?.getTracks().forEach((track) => track.stop());
     peerConnectionsRef.current.forEach((pc) => pc.close());

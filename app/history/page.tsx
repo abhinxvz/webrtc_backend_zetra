@@ -2,6 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { AnimatedButton } from '@/components/ui/animated-button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { api } from '@/lib/api';
+import {
+  Navbar,
+  NavBody,
+  NavItems,
+  MobileNav,
+  MobileNavHeader,
+  MobileNavMenu,
+  MobileNavToggle,
+} from '@/components/ui/resizable-navbar';
 
 interface CallLog {
   _id: string;
@@ -16,20 +28,13 @@ export default function History() {
   const router = useRouter();
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [username, setUsername] = useState('User');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      router.push('/');
+      router.push('/auth');
       return;
-    }
-
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      setUsername(payload.username || 'User');
-    } catch (error) {
-      console.error('Token decode error:', error);
     }
 
     fetchCallHistory(token);
@@ -37,18 +42,28 @@ export default function History() {
 
   const fetchCallHistory = async (token: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/call-logs`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+      console.log('📊 Fetching call history from:', `${apiUrl}/api/call-logs`);
+      
+      const res = await fetch(`${apiUrl}/api/call-logs`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
 
+      console.log('📊 Response status:', res.status);
+
       if (res.ok) {
         const data = await res.json();
-        setCallLogs(data.callLogs || []);
+        console.log('✅ Call logs received:', data);
+        setCallLogs(data.callLogs || data.data || []);
+      } else {
+        const errorText = await res.text();
+        console.error('❌ Failed to fetch call history:', res.status, errorText);
       }
     } catch (error) {
-      console.error('Error fetching call history:', error);
+      console.error('💥 Error fetching call history:', error);
     } finally {
       setLoading(false);
     }
@@ -73,103 +88,139 @@ export default function History() {
     return date.toLocaleString();
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <img src="/zetra-logo.svg" alt="Zetra" className="w-8 h-8" />
-            <h1 className="text-2xl font-bold text-black">Zetra</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-700">Welcome, {username}</span>
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-            >
-              Dashboard
-            </button>
-            <button
-              onClick={() => router.push('/profile')}
-              className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition"
-            >
-              Profile
-            </button>
-          </div>
-        </div>
-      </nav>
+  const handleLogout = () => {
+    api.clearToken();
+    router.push('/auth');
+  };
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <h2 className="text-3xl font-bold text-gray-800 mb-8">Call History</h2>
+  return (
+    <div
+      className="min-h-screen bg-cover bg-center relative"
+      style={{
+        backgroundImage: "url('https://i.postimg.cc/P5w0yP5X/ds.png')",
+      }}
+    >
+      {/* Noise Overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage:
+            "url('https://www.transparenttextures.com/patterns/black-orchid.png')",
+          opacity: 1,
+          mixBlendMode: 'overlay',
+        }}
+      ></div>
+
+      {/* Navigation */}
+      <Navbar className="top-0">
+        <NavBody>
+          <a href="/dashboard" className="relative z-20 flex items-center gap-3 px-2 py-1">
+            <img src="/zetra-logo.svg" alt="Zetra" className="w-12 h-12" />
+            <span className="text-3xl font-bold text-white">Zetra</span>
+          </a>
+          <NavItems
+            items={[
+              { name: 'Dashboard', link: '/dashboard' },
+              { name: 'History', link: '/history' },
+              { name: 'About', link: '/about' },
+              { name: 'Profile', link: '/profile' },
+            ]}
+          />
+          <div className="flex items-center gap-3">
+            <AnimatedButton onClick={handleLogout} size="md">
+              Logout
+            </AnimatedButton>
+          </div>
+        </NavBody>
+
+        <MobileNav>
+          <MobileNavHeader>
+            <a href="/dashboard" className="flex items-center gap-2">
+              <img src="/zetra-logo.svg" alt="Zetra" className="w-10 h-10" />
+              <span className="text-2xl font-bold text-white">Zetra</span>
+            </a>
+            <MobileNavToggle
+              isOpen={mobileMenuOpen}
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            />
+          </MobileNavHeader>
+          <MobileNavMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)}>
+            <a href="/dashboard" className="text-white hover:text-gray-300 transition-colors">
+              Dashboard
+            </a>
+            <a href="/history" className="text-white hover:text-gray-300 transition-colors">
+              History
+            </a>
+            <a href="/about" className="text-white hover:text-gray-300 transition-colors">
+              About
+            </a>
+            <a href="/profile" className="text-white hover:text-gray-300 transition-colors">
+              Profile
+            </a>
+            <AnimatedButton onClick={handleLogout} size="sm" className="w-full">
+              Logout
+            </AnimatedButton>
+          </MobileNavMenu>
+        </MobileNav>
+      </Navbar>
+
+      {/* Main Content */}
+      <div className="max-w-6xl mx-auto px-6 py-16 relative z-10">
+        <div className="text-center mb-12">
+          <h2 className="text-5xl font-bold text-white mb-4 tracking-tight drop-shadow-lg">
+            Call History
+          </h2>
+          <p className="text-lg text-gray-200">View your past video calls and meetings</p>
+        </div>
 
         {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-            <p className="text-gray-600 mt-4">Loading call history...</p>
-          </div>
+          <Card className="bg-white/10 backdrop-blur-md border-white/20 p-12 text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+            <p className="text-white mt-4">Loading call history...</p>
+          </Card>
         ) : callLogs.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-            <div className="text-6xl mb-4">📞</div>
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">No Call History</h3>
-            <p className="text-gray-600 mb-6">You haven't made any calls yet</p>
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition"
-            >
+          <Card className="bg-white/10 backdrop-blur-md border-white/20 p-12 text-center">
+            <div className="w-24 h-24 bg-black/50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+              <img src="/zetra-logo.svg" alt="Zetra" className="w-16 h-16" />
+            </div>
+            <h3 className="text-2xl font-semibold text-white mb-2">No Call History</h3>
+            <p className="text-gray-200 mb-6">You haven't made any calls yet</p>
+            <AnimatedButton onClick={() => router.push('/dashboard')} size="lg">
               Start Your First Call
-            </button>
-          </div>
+            </AnimatedButton>
+          </Card>
         ) : (
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Room ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Participants
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Start Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Duration
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {callLogs.map((log) => (
-                  <tr key={log._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <code className="text-sm text-gray-900 bg-gray-100 px-2 py-1 rounded">
-                        {log.roomId}
-                      </code>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {log.participants.length} participant{log.participants.length !== 1 ? 's' : ''}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDate(log.startTime)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDuration(log.duration)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button
-                        onClick={() => router.push(`/room/${log.roomId}`)}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        Rejoin
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-4">
+            {callLogs.map((log) => (
+              <Card
+                key={log._id}
+                className="bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/20 transition-all"
+              >
+                <CardContent className="p-6">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-white font-semibold text-lg">Room ID:</span>
+                        <code className="text-sm text-gray-200 bg-white/10 px-3 py-1 rounded-lg">
+                          {log.roomId}
+                        </code>
+                      </div>
+                      <div className="flex flex-wrap gap-4 text-sm text-gray-200">
+                        <span>👥 {log.participants.length} participant{log.participants.length !== 1 ? 's' : ''}</span>
+                        <span>🕐 {formatDate(log.startTime)}</span>
+                        <span>⏱️ {formatDuration(log.duration)}</span>
+                      </div>
+                    </div>
+                    <AnimatedButton
+                      onClick={() => router.push(`/room/${log.roomId}`)}
+                      size="md"
+                    >
+                      Rejoin Room
+                    </AnimatedButton>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         )}
       </div>
