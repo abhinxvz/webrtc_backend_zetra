@@ -55,7 +55,10 @@ export default function Room() {
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
-  const [userId, setUserId] = useState<string>('');
+  // useRef so userId is synchronously available inside the socket useEffect
+  const userIdRef = useRef<string>('');
+  const [userId, setUserId] = useState<string>(''); // kept for UI display only
+  const socketInitializedRef = useRef(false); // guard against duplicate socket init
   const [remoteUsers, setRemoteUsers] = useState<string[]>([]);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const [remoteUsernames, setRemoteUsernames] = useState<Map<string, string>>(new Map());
@@ -65,19 +68,35 @@ export default function Room() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/');
-      return;
-    }
+    
+    // Generate a random user ID if no token
+    let extractedUserId = 'user_' + Math.random().toString(36).substr(2, 9);
+    let extractedUsername = '';
 
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      setUserId(payload.userId || 'anonymous');
-      // Don't set username yet - wait for user input
-      setTempName(payload.username || '');
-    } catch (error) {
-      console.error('Token decode error:', error);
+    if (token) {
+      try {
+        // Validate token format
+        const parts = token.split('.');
+        if (parts.length === 3) {
+          // Decode JWT payload
+          const base64Url = parts[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const payload = JSON.parse(decodeURIComponent(atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join('')));
+          
+          extractedUserId = payload.userId || payload.id || extractedUserId;
+          extractedUsername = payload.username || payload.name || '';
+        }
+      } catch (error) {
+        console.warn('Could not decode token, using anonymous mode:', error);
+      }
     }
+    
+    // Store in both ref (for immediate availability) and state (for UI rendering)
+    userIdRef.current = extractedUserId;
+    setUserId(extractedUserId);
+    setTempName(extractedUsername);
   }, [router]);
 
   const handleJoinRoom = () => {
@@ -105,24 +124,56 @@ export default function Room() {
 
   useEffect(() => {
     if (!username || showNamePrompt) return;
+    // Prevent duplicate socket initialization (e.g. if userId state triggers re-render)
+    if (socketInitializedRef.current) return;
+    socketInitializedRef.current = true;
 
-    const socketInstance = io(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000');
+    const socketUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    console.log('🔌 Connecting to Socket.IO server:', socketUrl);
+    console.log('🔌 Environment:', process.env.NODE_ENV);
+    
+    const socketInstance = io(socketUrl, {
+      transports: ['polling', 'websocket'], // Try polling first
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 20000,
+      withCredentials: false,
+      autoConnect: true,
+      forceNew: true,
+      path: '/socket.io',
+    });
+    
     setSocket(socketInstance);
 
     socketInstance.on('connect', () => {
-      console.log('Socket connected');
+      console.log('✅ Socket connected successfully, ID:', socketInstance.id);
       setIsConnected(true);
     });
 
-    socketInstance.on('disconnect', () => {
-      console.log('Socket disconnected');
+    socketInstance.on('connect_error', (error) => {
+      console.error('❌ Socket connection error:', error);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error type:', error.type);
+      console.error('❌ Error description:', error.description);
       setIsConnected(false);
+    });
+
+    socketInstance.on('disconnect', (reason) => {
+      console.log('🔌 Socket disconnected:', reason);
+      setIsConnected(false);
+    });
+
+    socketInstance.on('error', (error) => {
+      console.error('❌ Socket error:', error);
     });
 
     const configuration: RTCConfiguration = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
         {
           urls: 'turn:openrelay.metered.ca:80',
           username: 'openrelayproject',
@@ -133,8 +184,15 @@ export default function Room() {
           username: 'openrelayproject',
           credential: 'openrelayproject',
         },
+        {
+          urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+          username: 'openrelayproject',
+          credential: 'openrelayproject',
+        },
       ],
       iceCandidatePoolSize: 10,
+      bundlePolicy: 'max-bundle',
+      rtcpMuxPolicy: 'require',
     };
 
     const createPeerConnection = (targetUserId: string) => {
@@ -145,38 +203,58 @@ export default function Room() {
       // Add local stream tracks
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => {
+          console.log('Adding track to peer connection:', track.kind, targetUserId);
           peerConnection.addTrack(track, localStreamRef.current!);
         });
       }
 
       // Handle incoming tracks
       peerConnection.ontrack = (event) => {
-        console.log('Received remote track from:', targetUserId, event.streams[0]);
+        console.log('✅ Received remote track from:', targetUserId, 'Track:', event.track.kind);
         if (event.streams[0]) {
+          console.log('✅ Setting remote stream for:', targetUserId);
           setRemoteStreams(prev => {
             const newStreams = new Map(prev);
             newStreams.set(targetUserId, event.streams[0]);
             return newStreams;
           });
-          console.log('Added remote stream for:', targetUserId);
         }
       };
 
       // Handle ICE candidates
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log('Sending ICE candidate to:', targetUserId);
+          console.log('📡 Sending ICE candidate to:', targetUserId, 'Type:', event.candidate.type);
           socketInstance.emit('ice-candidate', {
             roomId,
             candidate: event.candidate,
             targetUserId,
           });
+        } else {
+          console.log('✅ ICE gathering complete for:', targetUserId);
+        }
+      };
+
+      // ICE connection state monitoring
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log(`🧊 ICE connection state with ${targetUserId}:`, peerConnection.iceConnectionState);
+        if (peerConnection.iceConnectionState === 'failed') {
+          console.error('❌ ICE connection failed, restarting...');
+          peerConnection.restartIce();
         }
       };
 
       // Connection state monitoring
       peerConnection.onconnectionstatechange = () => {
-        console.log(`Connection state with ${targetUserId}:`, peerConnection.connectionState);
+        console.log(`🔗 Connection state with ${targetUserId}:`, peerConnection.connectionState);
+        if (peerConnection.connectionState === 'failed') {
+          console.error('❌ Connection failed with:', targetUserId);
+        }
+      };
+
+      // Signaling state monitoring
+      peerConnection.onsignalingstatechange = () => {
+        console.log(`📶 Signaling state with ${targetUserId}:`, peerConnection.signalingState);
       };
 
       peerConnectionsRef.current.set(targetUserId, peerConnection);
@@ -195,19 +273,21 @@ export default function Room() {
           localVideoRef.current.srcObject = stream;
         }
 
-        // Join room
-        socketInstance.emit('join-room', roomId, userId);
+        // Join room — use ref so the value is guaranteed non-empty
+        console.log('🚪 Emitting join-room with userId:', userIdRef.current);
+        socketInstance.emit('join-room', roomId, userIdRef.current);
         
         // Track call start time
         setCallStartTime(new Date());
 
         // Handle existing users in room
         socketInstance.on('existing-users', async (userIds: string[]) => {
-          console.log('Existing users in room:', userIds);
+          console.log('👥 Existing users in room:', userIds);
           setRemoteUsers(userIds);
           
           // Create peer connections and send offers to all existing users
           for (const targetUserId of userIds) {
+            console.log('📞 Initiating connection to:', targetUserId);
             const peerConnection = createPeerConnection(targetUserId);
             
             try {
@@ -215,93 +295,119 @@ export default function Room() {
                 offerToReceiveAudio: true,
                 offerToReceiveVideo: true,
               });
+              
+              console.log('📤 Setting local description for:', targetUserId);
               await peerConnection.setLocalDescription(offer);
               
+              console.log('📤 Sending offer to:', targetUserId);
               socketInstance.emit('offer', {
                 roomId,
-                offer,
+                offer: peerConnection.localDescription,
                 targetUserId,
               });
-              console.log('Sent offer to:', targetUserId);
             } catch (error) {
-              console.error('Error creating offer for:', targetUserId, error);
+              console.error('❌ Error creating offer for:', targetUserId, error);
             }
           }
         });
 
         // Handle new user joining
         socketInstance.on('user-connected', (connectedUserId: string) => {
-          console.log('New user connected:', connectedUserId);
-          setRemoteUsers(prev => [...prev, connectedUserId]);
-          // Don't create connection yet - wait for their offer
+          console.log('👤 New user connected:', connectedUserId);
+          setRemoteUsers(prev => {
+            if (!prev.includes(connectedUserId)) {
+              return [...prev, connectedUserId];
+            }
+            return prev;
+          });
         });
 
         // Handle incoming offer
         socketInstance.on('offer', async ({ offer, senderId }: { offer: any; senderId: string }) => {
-          console.log('Received offer from:', senderId);
+          console.log('📥 Received offer from:', senderId);
           
           let peerConnection = peerConnectionsRef.current.get(senderId);
           if (!peerConnection) {
+            console.log('🆕 Creating new peer connection for:', senderId);
             peerConnection = createPeerConnection(senderId);
           }
 
           try {
+            console.log('📥 Setting remote description from:', senderId);
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             
             // Process queued ICE candidates
             const queue = iceCandidatesQueueRef.current.get(senderId) || [];
-            for (const candidate of queue) {
-              await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            if (queue.length > 0) {
+              console.log(`📋 Processing ${queue.length} queued ICE candidates for:`, senderId);
+              for (const candidate of queue) {
+                try {
+                  await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                } catch (e) {
+                  console.error('❌ Error adding queued ICE candidate:', e);
+                }
+              }
+              iceCandidatesQueueRef.current.delete(senderId);
             }
-            iceCandidatesQueueRef.current.delete(senderId);
             
+            console.log('📤 Creating answer for:', senderId);
             const answer = await peerConnection.createAnswer();
+            
+            console.log('📤 Setting local description (answer) for:', senderId);
             await peerConnection.setLocalDescription(answer);
             
+            console.log('📤 Sending answer to:', senderId);
             socketInstance.emit('answer', {
               roomId,
-              answer,
+              answer: peerConnection.localDescription,
               targetUserId: senderId,
             });
-            console.log('Sent answer to:', senderId);
           } catch (error) {
-            console.error('Error handling offer from:', senderId, error);
+            console.error('❌ Error handling offer from:', senderId, error);
           }
         });
 
         // Handle incoming answer
         socketInstance.on('answer', async ({ answer, senderId }: { answer: any; senderId: string }) => {
-          console.log('Received answer from:', senderId);
+          console.log('📥 Received answer from:', senderId);
           
           const peerConnection = peerConnectionsRef.current.get(senderId);
           if (!peerConnection) {
-            console.error('No peer connection for:', senderId);
+            console.error('❌ No peer connection found for:', senderId);
             return;
           }
 
           try {
+            console.log('📥 Setting remote description (answer) from:', senderId);
             await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
             
             // Process queued ICE candidates
             const queue = iceCandidatesQueueRef.current.get(senderId) || [];
-            for (const candidate of queue) {
-              await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            if (queue.length > 0) {
+              console.log(`📋 Processing ${queue.length} queued ICE candidates for:`, senderId);
+              for (const candidate of queue) {
+                try {
+                  await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                } catch (e) {
+                  console.error('❌ Error adding queued ICE candidate:', e);
+                }
+              }
+              iceCandidatesQueueRef.current.delete(senderId);
             }
-            iceCandidatesQueueRef.current.delete(senderId);
             
-            console.log('Answer processed for:', senderId);
+            console.log('✅ Answer processed successfully for:', senderId);
           } catch (error) {
-            console.error('Error handling answer from:', senderId, error);
+            console.error('❌ Error handling answer from:', senderId, error);
           }
         });
 
         // Handle incoming ICE candidate
         socketInstance.on('ice-candidate', async ({ candidate, senderId }: { candidate: any; senderId: string }) => {
-          console.log('Received ICE candidate from:', senderId);
+          console.log('📡 Received ICE candidate from:', senderId);
           
           const peerConnection = peerConnectionsRef.current.get(senderId);
           if (!peerConnection) {
-            console.log('Peer connection not ready, queuing candidate');
+            console.log('⏳ Peer connection not ready, queuing ICE candidate for:', senderId);
             const queue = iceCandidatesQueueRef.current.get(senderId) || [];
             queue.push(candidate);
             iceCandidatesQueueRef.current.set(senderId, queue);
@@ -309,22 +415,23 @@ export default function Room() {
           }
 
           try {
-            if (peerConnection.remoteDescription) {
+            if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+              console.log('➕ Adding ICE candidate for:', senderId);
               await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-              console.log('ICE candidate added for:', senderId);
             } else {
+              console.log('⏳ Remote description not set, queuing ICE candidate for:', senderId);
               const queue = iceCandidatesQueueRef.current.get(senderId) || [];
               queue.push(candidate);
               iceCandidatesQueueRef.current.set(senderId, queue);
             }
           } catch (error) {
-            console.error('Error adding ICE candidate from:', senderId, error);
+            console.error('❌ Error adding ICE candidate from:', senderId, error);
           }
         });
 
         // Handle user disconnection
         socketInstance.on('user-disconnected', (disconnectedUserId: string) => {
-          console.log('User disconnected:', disconnectedUserId);
+          console.log('👋 User disconnected:', disconnectedUserId);
           
           const peerConnection = peerConnectionsRef.current.get(disconnectedUserId);
           if (peerConnection) {
@@ -379,9 +486,12 @@ export default function Room() {
       screenStreamRef.current?.getTracks().forEach((track) => track.stop());
       peerConnectionsRef.current.forEach((pc) => pc.close());
       peerConnectionsRef.current.clear();
+      socketInitializedRef.current = false;
       socketInstance.disconnect();
     };
-  }, [roomId, router, userId, username, showNamePrompt]);
+  // Intentionally exclude userId — we read it from userIdRef.current inside the effect
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, router, username, showNamePrompt]);
 
   const toggleAudio = () => {
     if (localStreamRef.current) {
@@ -479,16 +589,8 @@ export default function Room() {
         const token = localStorage.getItem('token');
         const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
         
-        // Get caller ID from token
-        let callerId = userId;
-        try {
-          const payload = JSON.parse(atob(token?.split('.')[1] || ''));
-          callerId = payload.userId || payload.id || userId;
-          console.log('🔑 Token payload:', payload);
-          console.log('👤 Extracted callerId:', callerId);
-        } catch (e) {
-          console.warn('Could not decode token for caller ID');
-        }
+        // Use ref for reliable callerId (avoids stale closure on state)
+        const callerId = userIdRef.current || userId;
         
         // Use first remote user as receiver, or caller if no remote users
         const receiverId = remoteUsers.length > 0 ? remoteUsers[0] : callerId;
@@ -497,14 +599,14 @@ export default function Room() {
         console.log('  - roomId:', roomId);
         console.log('  - callerId:', callerId);
         console.log('  - receiverId:', receiverId);
-        console.log('  - userId:', userId);
+        console.log('  - userId:', userIdRef.current);
         console.log('  - remoteUsers:', remoteUsers);
         
         const callLogData = {
           roomId,
           callerId,
           receiverId,
-          participants: [userId, ...remoteUsers],
+          participants: [userIdRef.current, ...remoteUsers],
           startTime: callStartTime.toISOString(),
           endTime: endTime.toISOString(),
           duration,
