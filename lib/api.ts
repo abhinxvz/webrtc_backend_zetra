@@ -99,13 +99,13 @@ class ApiClient {
   }
 
   // Room endpoints - client-side only (no backend needed for WebRTC rooms)
-  async createRoom() {
+  async createRoom(): Promise<ApiResponse<{ roomId: string }>> {
     // Generate a random room ID on the client side
     const roomId = Math.random().toString(36).substring(2, 15);
     return { data: { roomId } };
   }
 
-  async joinRoom(roomId: string) {
+  async joinRoom(roomId: string): Promise<ApiResponse<{ roomId: string }>> {
     // Just validate the room ID format
     if (!roomId || roomId.trim().length === 0) {
       return { error: 'Invalid room ID' };
