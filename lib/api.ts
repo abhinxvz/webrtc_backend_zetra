@@ -98,17 +98,19 @@ class ApiClient {
     });
   }
 
-  // Room endpoints
+  // Room endpoints - client-side only (no backend needed for WebRTC rooms)
   async createRoom() {
-    return this.request<{ roomId: string }>('/api/room/create', {
-      method: 'POST',
-    });
+    // Generate a random room ID on the client side
+    const roomId = Math.random().toString(36).substring(2, 15);
+    return { data: { roomId } };
   }
 
   async joinRoom(roomId: string) {
-    return this.request(`/api/room/join/${roomId}`, {
-      method: 'POST',
-    });
+    // Just validate the room ID format
+    if (!roomId || roomId.trim().length === 0) {
+      return { error: 'Invalid room ID' };
+    }
+    return { data: { roomId } };
   }
 
   // Call logs
