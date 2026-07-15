@@ -152,10 +152,11 @@ export default function Room() {
     });
 
     socketInstance.on('connect_error', (error) => {
-      console.error('❌ Socket connection error:', error);
-      console.error('❌ Error message:', error.message);
-      console.error('❌ Error type:', error.type);
-      console.error('❌ Error description:', error.description);
+      const err = error as any;
+      console.error('❌ Socket connection error:', err);
+      console.error('❌ Error message:', err.message);
+      console.error('❌ Error type:', err.type);
+      console.error('❌ Error description:', err.description);
       setIsConnected(false);
     });
 
