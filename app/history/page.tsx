@@ -165,26 +165,26 @@ export default function History() {
       </Navbar>
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-6 py-16 relative z-10">
-        <div className="text-center mb-12">
-          <h2 className="text-5xl font-bold text-white mb-4 tracking-tight drop-shadow-lg">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-16 relative z-10">
+        <div className="text-center mb-8 sm:mb-12">
+          <h2 className="text-3xl sm:text-5xl font-bold text-white mb-4 tracking-tight drop-shadow-lg">
             Call History
           </h2>
-          <p className="text-lg text-gray-200">View your past video calls and meetings</p>
+          <p className="text-base sm:text-lg text-gray-200">View your past video calls and meetings</p>
         </div>
 
         {loading ? (
-          <Card className="bg-white/10 backdrop-blur-md border-white/20 p-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-            <p className="text-white mt-4">Loading call history...</p>
+          <Card className="bg-white/10 backdrop-blur-md border-white/20 p-8 sm:p-12 text-center">
+            <div className="inline-block animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-white"></div>
+            <p className="text-white mt-4 text-sm sm:text-base">Loading call history...</p>
           </Card>
         ) : callLogs.length === 0 ? (
-          <Card className="bg-white/10 backdrop-blur-md border-white/20 p-12 text-center">
-            <div className="w-24 h-24 bg-black/50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
-              <img src="/zetra-logo.svg" alt="Zetra" className="w-16 h-16" />
+          <Card className="bg-white/10 backdrop-blur-md border-white/20 p-6 sm:p-12 text-center">
+            <div className="w-16 h-16 sm:w-24 sm:h-24 bg-black/50 rounded-2xl flex items-center justify-center mb-4 sm:mb-6 mx-auto">
+              <img src="/zetra-logo.svg" alt="Zetra" className="w-10 h-10 sm:w-16 sm:h-16" />
             </div>
-            <h3 className="text-2xl font-semibold text-white mb-2">No Call History</h3>
-            <p className="text-gray-200 mb-6">You haven't made any calls yet</p>
+            <h3 className="text-xl sm:text-2xl font-semibold text-white mb-2">No Call History</h3>
+            <p className="text-gray-200 text-sm sm:text-base mb-6">You haven't made any calls yet</p>
             <AnimatedButton onClick={() => router.push('/dashboard')} size="lg">
               Start Your First Call
             </AnimatedButton>
@@ -196,16 +196,16 @@ export default function History() {
                 key={log._id}
                 className="bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/20 transition-all"
               >
-                <CardContent className="p-6">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-white font-semibold text-lg">Room ID:</span>
-                        <code className="text-sm text-gray-200 bg-white/10 px-3 py-1 rounded-lg">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                        <span className="text-white font-semibold text-base sm:text-lg">Room ID:</span>
+                        <code className="text-xs sm:text-sm text-gray-200 bg-white/10 px-2.5 py-1 rounded-lg font-mono truncate max-w-[200px] sm:max-w-none">
                           {log.roomId}
                         </code>
                       </div>
-                      <div className="flex flex-wrap gap-4 text-sm text-gray-200">
+                      <div className="flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm text-gray-200">
                         <span>👥 {log.participants.length} participant{log.participants.length !== 1 ? 's' : ''}</span>
                         <span>🕐 {formatDate(log.startTime)}</span>
                         <span>⏱️ {formatDuration(log.duration)}</span>
@@ -214,6 +214,7 @@ export default function History() {
                     <AnimatedButton
                       onClick={() => router.push(`/room/${log.roomId}`)}
                       size="md"
+                      className="w-full sm:w-auto"
                     >
                       Rejoin Room
                     </AnimatedButton>

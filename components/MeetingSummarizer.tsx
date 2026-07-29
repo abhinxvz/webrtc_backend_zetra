@@ -126,10 +126,10 @@ export default function MeetingSummarizer({ roomId, userId, username, isConnecte
   };
 
   return (
-    <Card className="bg-white/10 backdrop-blur-md border-white/20 p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-xl font-bold text-white">AI Meeting Summarizer</h3>
-        <div className="flex gap-2">
+    <Card className="bg-white/10 backdrop-blur-md border-white/20 p-4 sm:p-6 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h3 className="text-lg sm:text-xl font-bold text-white">AI Meeting Summarizer</h3>
+        <div className="flex flex-wrap gap-2">
           {!isRecording ? (
             <Button
               onClick={startRecording}

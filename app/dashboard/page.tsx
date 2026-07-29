@@ -137,27 +137,27 @@ export default function Dashboard() {
       </Navbar>
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-6 py-16 relative z-10">
-        <div className="text-center mb-16">
-          <h2 className="text-5xl font-bold text-white mb-4 tracking-tight drop-shadow-lg">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-16 relative z-10">
+        <div className="text-center mb-10 sm:mb-16">
+          <h2 className="text-3xl sm:text-5xl font-bold text-white mb-4 tracking-tight drop-shadow-lg">
             Start your video call
           </h2>
-          <p className="text-lg text-gray-200 max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-gray-200 max-w-2xl mx-auto">
             Create a new room or join an existing one to connect with others
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mb-12 sm:mb-16">
           {/* Create Room Card */}
           <CardSpotlight className="group hover:border-white/40 transition-all flex flex-col">
             <CardHeader className="text-center pb-4">
-              <CardTitle className="text-2xl font-bold text-white">Create room</CardTitle>
-              <CardDescription className="text-base text-gray-200">
+              <CardTitle className="text-xl sm:text-2xl font-bold text-white">Create room</CardTitle>
+              <CardDescription className="text-sm sm:text-base text-gray-200">
                 Start a new video call and invite others to join
               </CardDescription>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col justify-end">
-              <div className="h-[56px] mb-4"></div>
+              <div className="hidden md:block h-[56px] mb-4"></div>
               <AnimatedButton
                 onClick={handleCreateRoom}
                 disabled={loading}
@@ -172,8 +172,8 @@ export default function Dashboard() {
           {/* Join Room Card */}
           <CardSpotlight className="group hover:border-white/40 transition-all flex flex-col">
             <CardHeader className="text-center pb-4">
-              <CardTitle className="text-2xl font-bold text-white">Join room</CardTitle>
-              <CardDescription className="text-base text-gray-200">
+              <CardTitle className="text-xl sm:text-2xl font-bold text-white">Join room</CardTitle>
+              <CardDescription className="text-sm sm:text-base text-gray-200">
                 Enter a room ID to join an existing call
               </CardDescription>
             </CardHeader>
@@ -197,8 +197,6 @@ export default function Dashboard() {
             </CardContent>
           </CardSpotlight>
         </div>
-
-
       </div>
     </div>
   );

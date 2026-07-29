@@ -270,12 +270,12 @@ export default function Profile() {
       </Navbar>
 
       {/* Main Content */}
-      <div className="max-w-5xl mx-auto px-6 py-16 relative z-10">
-        <div className="text-center mb-12">
-          <h2 className="text-5xl font-bold text-white mb-4 tracking-tight drop-shadow-lg">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-16 relative z-10">
+        <div className="text-center mb-8 sm:mb-12">
+          <h2 className="text-3xl sm:text-5xl font-bold text-white mb-4 tracking-tight drop-shadow-lg">
             Profile & Settings
           </h2>
-          <p className="text-lg text-gray-200">Manage your account and preferences</p>
+          <p className="text-base sm:text-lg text-gray-200">Manage your account and preferences</p>
         </div>
 
         <div className="grid gap-6">

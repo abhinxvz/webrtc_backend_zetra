@@ -30,8 +30,8 @@ export default function Profile() {
         <div className="absolute top-4 left-4">LOGO</div>
 
         {/* Center Content */}
-        <div className="text-center px-4 w-[60%]">
-          <h1 className="garamond-font text-6xl font-normal text-white drop-shadow-lg text-zinc-900">
+        <div className="text-center px-4 w-full max-w-2xl sm:w-[80%] md:w-[60%]">
+          <h1 className="garamond-font text-3xl sm:text-5xl lg:text-6xl font-normal text-white drop-shadow-lg text-zinc-900">
             Find Your Inner Peace, <span className="garamond-italic">One Breath at a Time!</span>
           </h1>
           <button className="mt-8 px-6 py-3 bg-[#193d21] text-white font-normal rounded-2xl hover:bg-[#193d21]/90 transition duration-300 font-inter">

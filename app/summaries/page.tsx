@@ -130,10 +130,10 @@ export default function SummariesPage() {
       ></div>
 
       <div className="relative z-10 min-h-screen">
-        <div className="bg-white/10 backdrop-blur-md border-b-2 border-white/20 px-6 py-4 flex justify-between items-center">
+        <div className="bg-white/10 backdrop-blur-md border-b-2 border-white/20 px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-2">
           <div className="flex items-center gap-3">
             <img src="/zetra-logo.svg" alt="Zetra" className="w-8 h-8" />
-            <h1 className="text-2xl font-bold text-white">Meeting Summaries</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-white">Meeting Summaries</h1>
           </div>
           <AnimatedButton
             onClick={() => router.push('/dashboard')}
@@ -143,15 +143,15 @@ export default function SummariesPage() {
           </AnimatedButton>
         </div>
 
-        <div className="container mx-auto px-6 py-8">
+        <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
           {isLoading ? (
             <div className="text-center text-white">
               <p>Loading summaries...</p>
             </div>
           ) : summaries.length === 0 ? (
-            <Card className="bg-white/10 backdrop-blur-md border-white/20 p-8 text-center">
-              <p className="text-white text-lg">No meeting summaries yet</p>
-              <p className="text-gray-300 text-sm mt-2">
+            <Card className="bg-white/10 backdrop-blur-md border-white/20 p-6 sm:p-8 text-center">
+              <p className="text-white text-base sm:text-lg">No meeting summaries yet</p>
+              <p className="text-gray-300 text-xs sm:text-sm mt-2">
                 Start a meeting and use the AI summarizer to create your first summary
               </p>
             </Card>
@@ -160,14 +160,14 @@ export default function SummariesPage() {
               {summaries.map((summary) => (
                 <Card
                   key={summary._id}
-                  className="bg-white/10 backdrop-blur-md border-white/20 p-6 space-y-4"
+                  className="bg-white/10 backdrop-blur-md border-white/20 p-4 sm:p-6 space-y-4"
                 >
-                  <div className="flex justify-between items-start">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                     <div>
-                      <h3 className="text-lg font-bold text-white">
+                      <h3 className="text-base sm:text-lg font-bold text-white">
                         Room: {summary.roomId.substring(0, 8)}...
                       </h3>
-                      <p className="text-sm text-gray-300">
+                      <p className="text-xs sm:text-sm text-gray-300">
                         {new Date(summary.startTime).toLocaleString()} • Duration:{' '}
                         {formatDuration(summary.duration)}
                       </p>
@@ -175,7 +175,7 @@ export default function SummariesPage() {
                     <AnimatedButton
                       onClick={() => deleteSummary(summary._id)}
                       size="sm"
-                      className="bg-red-600/20"
+                      className="bg-red-600/20 self-start"
                     >
                       Delete
                     </AnimatedButton>

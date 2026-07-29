@@ -763,16 +763,41 @@ export default function Room() {
               <img src="/zetra-logo.svg" alt="Zetra" className="w-8 h-8" />
               <span className="text-xl font-bold text-white">Zetra</span>
             </a>
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`} />
+              <span className="text-xs font-mono text-gray-200">{formatDuration(callDuration)}</span>
+            </div>
           </MobileNavHeader>
+          <div className="flex items-center justify-between w-full mt-2 pt-2 border-t border-white/10 text-xs px-1">
+            <div className="flex items-center gap-1.5 overflow-hidden">
+              <span className="text-gray-300 text-xs">Room:</span>
+              <code className="bg-white/20 text-white px-2 py-0.5 rounded text-xs font-mono truncate max-w-[130px]">
+                {roomId}
+              </code>
+            </div>
+            <Button
+              onClick={copyRoomId}
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-white hover:bg-white/20 px-2 flex items-center gap-1"
+            >
+              <Copy className="w-3 h-3" />
+              Copy
+            </Button>
+          </div>
         </MobileNav>
       </Navbar>
 
       {/* Main Content */}
       <div className="flex-1 flex relative z-10">
-        {/* Video Filters Sidebar */}
         {/* AI Summarizer Sidebar */}
         {showSummarizer && (
-          <div className="w-96 bg-white/10 backdrop-blur-md border-r-2 border-white/20 p-6 overflow-y-auto">
+          <div className="w-full lg:w-96 fixed lg:relative inset-y-0 right-0 z-40 bg-black/90 lg:bg-white/10 backdrop-blur-md border-l-2 border-white/20 p-4 sm:p-6 overflow-y-auto max-h-screen lg:max-h-none">
+            <div className="flex justify-end lg:hidden mb-2">
+              <Button onClick={() => setShowSummarizer(false)} size="sm" variant="ghost" className="text-white">
+                ✕ Close
+              </Button>
+            </div>
             <MeetingSummarizer
               roomId={roomId}
               userId={userId}
@@ -783,8 +808,8 @@ export default function Room() {
         )}
 
         {/* Video Grid */}
-        <div className="flex-1 flex items-center justify-center p-6 pb-32">
-          <div className={`grid gap-4 w-full max-w-7xl ${
+        <div className="flex-1 flex items-center justify-center p-2 sm:p-6 pb-28 sm:pb-32">
+          <div className={`grid gap-3 sm:gap-4 w-full max-w-7xl ${
             remoteStreams.size === 0 ? 'grid-cols-1 max-w-2xl' :
             remoteStreams.size === 1 ? 'grid-cols-1 md:grid-cols-2' :
             remoteStreams.size === 2 ? 'grid-cols-1 md:grid-cols-3' :
@@ -797,19 +822,18 @@ export default function Room() {
                 autoPlay
                 muted
                 playsInline
-                className="w-full h-full object-cover rounded-2xl"
-                style={{ minHeight: '300px', maxHeight: '500px' }}
+                className="w-full h-full object-cover rounded-2xl min-h-[180px] sm:min-h-[300px] max-h-[350px] sm:max-h-[500px]"
               />
-              <div className="absolute bottom-4 left-4 bg-black/80 backdrop-blur-lg px-4 py-2 rounded-xl border border-white/20">
-                <p className="text-white text-sm font-semibold">You ({username})</p>
+              <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 bg-black/80 backdrop-blur-lg px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl border border-white/20">
+                <p className="text-white text-xs sm:text-sm font-semibold">You ({username})</p>
               </div>
               {!isVideoEnabled && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-900 rounded-2xl">
                   <div className="text-center">
-                    <div className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-2 border-4 border-white">
-                      <span className="text-3xl text-white font-bold">{username.charAt(0).toUpperCase()}</span>
+                    <div className="w-14 h-14 sm:w-20 sm:h-20 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-2 border-4 border-white">
+                      <span className="text-xl sm:text-3xl text-white font-bold">{username.charAt(0).toUpperCase()}</span>
                     </div>
-                    <p className="text-white text-sm font-medium">Camera off</p>
+                    <p className="text-white text-xs sm:text-sm font-medium">Camera off</p>
                   </div>
                 </div>
               )}
@@ -828,12 +852,11 @@ export default function Room() {
                         el.srcObject = stream;
                       }
                     }}
-                    className="w-full h-full object-cover rounded-2xl"
-                    style={{ minHeight: '300px', maxHeight: '500px' }}
+                    className="w-full h-full object-cover rounded-2xl min-h-[180px] sm:min-h-[300px] max-h-[350px] sm:max-h-[500px]"
                     onLoadedMetadata={() => console.log('✅ Video loaded for:', userId)}
                   />
-                  <div className="absolute bottom-4 left-4 bg-black/80 backdrop-blur-lg px-4 py-2 rounded-xl border border-white/20">
-                    <p className="text-white text-sm font-semibold">{displayName}</p>
+                  <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 bg-black/80 backdrop-blur-lg px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl border border-white/20">
+                    <p className="text-white text-xs sm:text-sm font-semibold">{displayName}</p>
                   </div>
                 </Card>
               );
@@ -842,13 +865,13 @@ export default function Room() {
             {/* Waiting Placeholder - Only show if no remote users */}
             {remoteStreams.size === 0 && (
               <Card className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black backdrop-blur-sm border-2 border-white/30 rounded-2xl shadow-2xl">
-                <div className="flex items-center justify-center" style={{ minHeight: '300px' }}>
-                  <div className="text-center">
-                    <div className="w-20 h-20 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3 border-4 border-white/50">
-                      <span className="text-3xl text-white font-bold">?</span>
+                <div className="flex items-center justify-center min-h-[180px] sm:min-h-[300px]">
+                  <div className="text-center p-4">
+                    <div className="w-14 h-14 sm:w-20 sm:h-20 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3 border-4 border-white/50">
+                      <span className="text-xl sm:text-3xl text-white font-bold">?</span>
                     </div>
-                    <p className="text-white text-sm font-medium">Waiting for others to join...</p>
-                    <p className="text-gray-400 text-xs mt-2">Share the room ID to invite</p>
+                    <p className="text-white text-xs sm:text-sm font-medium">Waiting for others to join...</p>
+                    <p className="text-gray-400 text-xs mt-1">Share the room ID to invite</p>
                   </div>
                 </div>
               </Card>
@@ -856,32 +879,23 @@ export default function Room() {
           </div>
         </div>
 
-        {/* Summarizer Sidebar */}
-        {showSummarizer && (
-          <div className="w-96 bg-white/10 backdrop-blur-md border-l-2 border-white/20 p-6 overflow-y-auto">
-            <MeetingSummarizer
-              roomId={roomId}
-              userId={userId}
-              username={username}
-              isConnected={isConnected}
-            />
-          </div>
-        )}
-
         {/* Chat Sidebar */}
         {showChat && !showSummarizer && (
-          <div className="w-96 bg-white/10 backdrop-blur-md border-l-2 border-white/20 flex flex-col">
-            <div className="p-6 border-b-2 border-white/20">
+          <div className="w-full lg:w-96 fixed lg:relative inset-y-0 right-0 z-40 bg-black/90 lg:bg-white/10 backdrop-blur-md border-l-2 border-white/20 flex flex-col max-h-screen lg:max-h-none">
+            <div className="p-4 sm:p-6 border-b-2 border-white/20 flex justify-between items-center">
               <h3 className="text-xl font-bold text-white">Chat</h3>
+              <Button onClick={() => setShowChat(false)} size="sm" variant="ghost" className="text-white lg:hidden">
+                ✕ Close
+              </Button>
             </div>
-            <div className="flex-1 overflow-y-auto p-6 space-y-3">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3">
               {chatMessages.length === 0 ? (
                 <div className="text-center text-gray-300 mt-8">
                   <p className="text-sm">No messages yet</p>
                 </div>
               ) : (
                 chatMessages.map((msg, idx) => (
-                  <div key={idx} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                  <div key={idx} className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
                     <p className="text-white text-sm font-bold">{msg.username}</p>
                     <p className="text-gray-200 text-sm mt-1">{msg.message}</p>
                     <p className="text-gray-400 text-xs mt-2">
@@ -891,7 +905,7 @@ export default function Room() {
                 ))
               )}
             </div>
-            <div className="p-6 border-t-2 border-white/20">
+            <div className="p-4 sm:p-6 border-t-2 border-white/20">
               <div className="flex gap-2">
                 <Input
                   type="text"
@@ -899,11 +913,11 @@ export default function Room() {
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
                   placeholder="Type a message..."
-                  className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-gray-300 backdrop-blur-sm"
+                  className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-gray-300 backdrop-blur-sm text-sm"
                 />
                 <Button
                   onClick={sendChatMessage}
-                  size="lg"
+                  size="default"
                   className="bg-black hover:bg-gray-900 text-white shadow-lg"
                 >
                   Send
@@ -922,12 +936,12 @@ export default function Room() {
           size="icon"
           className={
             !isAudioEnabled
-              ? 'bg-red-600 hover:bg-red-700 text-white w-12 h-12 rounded-full'
-              : 'bg-white/10 border border-white/30 text-white hover:bg-white/20 w-12 h-12 rounded-full'
+              ? 'bg-red-600 hover:bg-red-700 text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full'
+              : 'bg-white/10 border border-white/30 text-white hover:bg-white/20 w-10 h-10 sm:w-12 sm:h-12 rounded-full'
           }
           title={isAudioEnabled ? 'Mute' : 'Unmute'}
         >
-          {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+          {isAudioEnabled ? <Mic className="w-4 h-4 sm:w-5 sm:h-5" /> : <MicOff className="w-4 h-4 sm:w-5 sm:h-5" />}
         </Button>
 
         <Button
@@ -936,12 +950,12 @@ export default function Room() {
           size="icon"
           className={
             !isVideoEnabled
-              ? 'bg-red-600 hover:bg-red-700 text-white w-12 h-12 rounded-full'
-              : 'bg-white/10 border border-white/30 text-white hover:bg-white/20 w-12 h-12 rounded-full'
+              ? 'bg-red-600 hover:bg-red-700 text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full'
+              : 'bg-white/10 border border-white/30 text-white hover:bg-white/20 w-10 h-10 sm:w-12 sm:h-12 rounded-full'
           }
           title={isVideoEnabled ? 'Stop video' : 'Start video'}
         >
-          {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+          {isVideoEnabled ? <Video className="w-4 h-4 sm:w-5 sm:h-5" /> : <VideoOff className="w-4 h-4 sm:w-5 sm:h-5" />}
         </Button>
 
         <Button
@@ -950,24 +964,24 @@ export default function Room() {
           size="icon"
           className={
             isScreenSharing
-              ? 'bg-white/20 hover:bg-white/30 text-white w-12 h-12 rounded-full'
-              : 'bg-white/10 border border-white/30 text-white hover:bg-white/20 w-12 h-12 rounded-full'
+              ? 'bg-white/20 hover:bg-white/30 text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full'
+              : 'bg-white/10 border border-white/30 text-white hover:bg-white/20 w-10 h-10 sm:w-12 sm:h-12 rounded-full'
           }
           title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
         >
-          {isScreenSharing ? <MonitorStop className="w-5 h-5" /> : <MonitorUp className="w-5 h-5" />}
+          {isScreenSharing ? <MonitorStop className="w-4 h-4 sm:w-5 sm:h-5" /> : <MonitorUp className="w-4 h-4 sm:w-5 sm:h-5" />}
         </Button>
 
         <Button
           onClick={() => setShowChat(!showChat)}
           variant="outline"
           size="icon"
-          className="relative bg-white/10 border border-white/30 text-white hover:bg-white/20 w-12 h-12 rounded-full"
+          className="relative bg-white/10 border border-white/30 text-white hover:bg-white/20 w-10 h-10 sm:w-12 sm:h-12 rounded-full"
           title={showChat ? 'Hide chat' : 'Show chat'}
         >
-          {showChat ? <MessageSquareOff className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
+          {showChat ? <MessageSquareOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />}
           {chatMessages.length > 0 && !showChat && (
-            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center font-bold">
               {chatMessages.length}
             </span>
           )}
@@ -979,10 +993,10 @@ export default function Room() {
           onClick={leaveRoom}
           variant="default"
           size="icon"
-          className="bg-red-600 hover:bg-red-700 w-12 h-12 rounded-full"
+          className="bg-red-600 hover:bg-red-700 w-10 h-10 sm:w-12 sm:h-12 rounded-full"
           title="Leave room"
         >
-          <LogOut className="w-5 h-5" />
+          <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
         </Button>
       </ControlDock>
     </div>

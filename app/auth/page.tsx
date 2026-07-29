@@ -61,7 +61,7 @@ export default function AuthPage() {
 
   return (
     <div
-        className="relative min-h-screen flex items-center justify-center bg-cover bg-center p-4"
+        className="relative min-h-screen flex flex-col items-center justify-center bg-cover bg-center p-4 py-8 sm:py-4"
         style={{
           backgroundImage:
             "url('https://images.hdqwalls.com/download/planet-pixel-art-4k-3p-1280x720.jpg')",
@@ -79,9 +79,9 @@ export default function AuthPage() {
         ></div>
 
         {/* Logo */}
-        <div className="absolute top-6 left-6 z-10 flex items-center gap-4">
-          <img src="/zetra-logo.svg" alt="Zetra" className="w-16 h-16" />
-          <h1 className="text-white text-4xl font-bold">Zetra</h1>
+        <div className="relative sm:absolute top-0 sm:top-6 left-0 sm:left-6 z-10 flex items-center gap-2 sm:gap-4 mb-6 sm:mb-0">
+          <img src="/zetra-logo.svg" alt="Zetra" className="w-10 h-10 sm:w-16 sm:h-16" />
+          <h1 className="text-white text-2xl sm:text-4xl font-bold">Zetra</h1>
         </div>
 
         <MagicCard 
@@ -93,7 +93,7 @@ export default function AuthPage() {
           gradientTo="#a855f7"
         >
           <CardHeader className="space-y-2 text-center">
-            <CardTitle className="garamond-italic text-3xl font-normal tracking-tight text-white">
+            <CardTitle className="garamond-italic text-2xl sm:text-3xl font-normal tracking-tight text-white">
               {isLogin ? 'Welcome back' : 'Create account'}
             </CardTitle>
           <CardDescription className="text-base text-gray-200">
